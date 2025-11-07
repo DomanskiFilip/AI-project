@@ -1,6 +1,4 @@
 package main;
-import java.io.BufferedReader;
-import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -13,36 +11,37 @@ public class CWmain {
     private static final int BIT_OF_DIGIT = 65;
     private static final int BITMAPS_TO_DISPLAY = 20;
 
+    // function to read the csv files 
     private static List<List<Integer>> readCsvFile(String DATASET_A_FILE_PATH, int BIT_OF_DIGIT) {
         List<List<Integer>> dataSet = new ArrayList<>();
         int rowCount = 0;
 
-        System.out.println("Starting to read CSV fildataSet.size()e: " + DATASET_A_FILE_PATH);
+        System.out.println("Starting to read CSV file: " + DATASET_A_FILE_PATH);
 
-        try (BufferedReader br = new BufferedReader(new FileReader(DATASET_A_FILE_PATH))) {
-            String line;
-            
-            while ((line = br.readLine()) != null) {
+        try (Scanner scanner = new Scanner(new java.io.File(DATASET_A_FILE_PATH))) {
+            while (scanner.hasNextLine()) {
+                String line = scanner.nextLine();
                 String[] values = line.split(",");
-                
+
+                // Ensure the row has the expected number of columns
                 if (values.length != BIT_OF_DIGIT) {
                     System.err.println("Warning: Row " + (rowCount + 1) + " has " + values.length + " columns, expected " + BIT_OF_DIGIT + ". Skipping row.");
                     continue;
                 }
-                
+
                 List<Integer> currentRow = new ArrayList<>();
                 boolean conversionError = false;
-                
-                for (String value : values) {
+
+                for (int i = 0; i < BIT_OF_DIGIT; i++) {
                     try {
-                        currentRow.add(Integer.parseInt(value.trim()));
-                    } catch (NumberFormatException e) {
-                        System.err.println("Error: Could not convert value '" + value + "' to integer in row " + (rowCount + 1) + ". Skipping row.");
+                        currentRow.add(Integer.parseInt(values[i].trim()));
+                    } catch (NumberFormatException error) {
+                        System.err.println("Error: Could not convert value '" + values[i] + "' to integer in row " + (rowCount + 1) + ". Skipping row.");
                         conversionError = true;
                         break;
                     }
                 }
-                
+
                 if (!conversionError) {
                     dataSet.add(currentRow);
                     rowCount++;
@@ -50,11 +49,11 @@ public class CWmain {
             }
             return dataSet;
 
-        } catch (IOException e) {
+        } catch (IOException error) {
             System.err.println("\n--- ERROR: Failed to read the file ---");
             System.err.println("Ensure the file exists at the correct path: " + DATASET_A_FILE_PATH);
-            System.err.println("Details: " + e.getMessage());
-            return null; 
+            System.err.println("Details: " + error.getMessage());
+            return null;
         }
     }
 
@@ -104,8 +103,53 @@ public class CWmain {
         }
     }
 
+    // Euclidean Distance
+    private static void EuclideanDistance(List<List<Integer>> dataSetA, List<List<Integer>> dataSetB) {
+        int correctMatches = 0; // Count of correct matches
+        int totalComparisons = dataSetA.size(); // Total rows in dataSetA
+
+        for (int aIndex = 0; aIndex < dataSetA.size(); aIndex++) {
+            List<Integer> selectedRow = dataSetA.get(aIndex);
+            int actualDigit = selectedRow.get(BIT_OF_DIGIT - 1); // The 65th value (category)
+
+            double minDistance = Double.MAX_VALUE;
+            int closestRowIndex = -1;
+            
+            // Euclidian distance calculation
+            for (int bIndex = 0; bIndex < dataSetB.size(); bIndex++) {
+                List<Integer> currentRow = dataSetB.get(bIndex);
+
+                double sum = 0.0;
+                for (int j = 0; j < BIT_OF_DIGIT - 1; j++) { // Only compare the first 64 values
+                    double diff = selectedRow.get(j) - currentRow.get(j);
+                    sum += diff * diff;
+                }
+                double distance = Math.sqrt(sum);
+
+                // update the closest row if the current distance is smaller
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    closestRowIndex = bIndex;
+                }
+            }
+
+            // Check if the closest row has the same category (digit)
+            int predictedDigit = dataSetB.get(closestRowIndex).get(BIT_OF_DIGIT - 1); // The 65th value (category)
+            if (actualDigit == predictedDigit) {
+                correctMatches++;
+            }
+        }
+
+        // calculate and display the success rate
+        double successRate = (correctMatches / (double) totalComparisons) * 100;
+        System.out.println("\n--- Euclidean Distance Success Rate ---");
+        System.out.println("Correct Matches: " + correctMatches + " / " + totalComparisons);
+        System.out.println("Success Rate: " + successRate + "%");
+    }
+    
+    // user interface 
     private static void UserInterface(List<List<Integer>> dataSetA ,List<List<Integer>> dataSetB) {
-    	Scanner scanner = new Scanner(System.in);
+    	Scanner scanner = new Scanner(System.in); 
         boolean running = true;
         
         while (running) {
@@ -114,8 +158,10 @@ public class CWmain {
             System.out.println("2 -> Print entire data set B");
             System.out.println("3 -> Print " + BITMAPS_TO_DISPLAY + " bitmaps from data set A");
             System.out.println("4 -> Print " + BITMAPS_TO_DISPLAY + " bitmaps from data set B");
-            System.out.println("5 -> Exit");
-            System.out.print("\nEnter your choice (1-5): ");
+            System.out.println("5 -> Get closest bitmap from data set B to selected bitmap from data set A useing Euclidean Distance");
+            
+            System.out.println("0 -> Exit");
+            System.out.print("\nEnter your choice (0-5): ");
             
             try {
                 int choice = scanner.nextInt();
@@ -162,6 +208,10 @@ public class CWmain {
                         break;
                         
                     case 5:
+                    	EuclideanDistance(dataSetA, dataSetB);
+                        break;
+                        
+                    case 0:
                         System.out.println("\nExiting");
                         running = false;
                         break;
@@ -170,7 +220,7 @@ public class CWmain {
                         System.out.println("\nInvalid choice. Please enter a number corresponting to avaliable actions.");
                 }
                 
-            } catch (Exception e) {
+            } catch (Exception error) {
                 System.out.println("\nInvalid input. Please enter a number corresponting to avaliable actions.");
                 scanner.nextLine(); // Clear the invalid input
             }
