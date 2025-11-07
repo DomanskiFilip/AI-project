@@ -147,6 +147,78 @@ public class CWmain {
         System.out.println("Success Rate: " + successRate + "%");
     }
     
+    // user subinterface for prints
+    private static void PrintUserInterface(List<List<Integer>> dataSetA ,List<List<Integer>> dataSetB) {
+    	Scanner scanner = new Scanner(System.in); 
+        boolean running = true;
+        
+        while (running) {
+        System.out.println("\n=== Print Actions: ===");
+        System.out.println("1 -> Print entire data set A");
+    	System.out.println("2 -> Print entire data set B");
+        System.out.println("3 -> Print " + BITMAPS_TO_DISPLAY + " bitmaps from data set A");
+        System.out.println("4 -> Print " + BITMAPS_TO_DISPLAY + " bitmaps from data set B");
+        System.out.println("0 -> Exit");
+        System.out.print("\nEnter your choice (0-4): ");
+        try {
+            int choice = scanner.nextInt();
+            
+            switch (choice) {case 1:
+                if (dataSetA != null && !dataSetA.isEmpty()) {
+                    System.out.println("\n--- DataSet A (Complete) ---");
+                    System.out.println("Total rows: " + dataSetA.size());
+                    printDataSet(dataSetA);
+                } else {
+                    System.out.println("\nNo data (DataSetA) was loaded or an error occurred during reading.");
+                }
+                break;
+                
+            case 2:
+                if (dataSetB != null && !dataSetB.isEmpty()) {
+                    System.out.println("\n--- DataSet B (Complete) ---");
+                    System.out.println("Total rows: " + dataSetB.size());
+                    printDataSet(dataSetB);
+                } else {
+                    System.out.println("\nNo data (DataSetB) was loaded or an error occurred during reading.");
+                }
+                break;
+                
+            case 3:
+                if (dataSetA != null && !dataSetA.isEmpty()) {
+                    System.out.println("\n--- DataSet A (First " + BITMAPS_TO_DISPLAY + " bitmaps) ---");
+                    System.out.println("Total rows: " + dataSetA.size());
+                    printLimitedDataSet(dataSetA);
+                } else {
+                    System.out.println("\nNo data (DataSetA) was loaded or an error occurred during reading.");
+                }
+                break;
+                
+            case 4:
+                if (dataSetB != null && !dataSetB.isEmpty()) {
+                    System.out.println("\n--- DataSet B (First " + BITMAPS_TO_DISPLAY + " bitmaps) ---");
+                    System.out.println("Total rows: " + dataSetB.size());
+                    printLimitedDataSet(dataSetB);
+                } else {
+                    System.out.println("\nNo data (DataSetB) was loaded or an error occurred during reading.");
+                }
+                break;
+                
+            case 0:
+		        System.out.println("\nExiting");
+		        running = false;
+		        break;
+		        
+			    default:
+			        System.out.println("\nInvalid choice. Please enter a number corresponting to avaliable actions.");
+			}
+			
+			} catch (Exception error) {
+			System.out.println("\nInvalid input. Please enter a number corresponting to avaliable actions.");
+			scanner.nextLine(); // Clear the invalid input
+			}
+		}
+    }
+    
     // user interface 
     private static void UserInterface(List<List<Integer>> dataSetA ,List<List<Integer>> dataSetB) {
     	Scanner scanner = new Scanner(System.in); 
@@ -154,60 +226,20 @@ public class CWmain {
         
         while (running) {
             System.out.println("\n=== Actions: ===");
-            System.out.println("1 -> Print entire data set A");
-            System.out.println("2 -> Print entire data set B");
-            System.out.println("3 -> Print " + BITMAPS_TO_DISPLAY + " bitmaps from data set A");
-            System.out.println("4 -> Print " + BITMAPS_TO_DISPLAY + " bitmaps from data set B");
-            System.out.println("5 -> Get closest bitmap from data set B to selected bitmap from data set A useing Euclidean Distance");
-            
+            System.out.println("1 -> Printing datasets options");
+            System.out.println("2 -> Euclidean Distance");
             System.out.println("0 -> Exit");
-            System.out.print("\nEnter your choice (0-5): ");
+            System.out.print("\nEnter your choice (0-2): ");
             
             try {
                 int choice = scanner.nextInt();
                 
                 switch (choice) {
-                    case 1:
-                        if (dataSetA != null && !dataSetA.isEmpty()) {
-                            System.out.println("\n--- DataSet A (Complete) ---");
-                            System.out.println("Total rows: " + dataSetA.size());
-                            printDataSet(dataSetA);
-                        } else {
-                            System.out.println("\nNo data (DataSetA) was loaded or an error occurred during reading.");
-                        }
-                        break;
-                        
+                	case 1:
+                		PrintUserInterface(dataSetA, dataSetB);
+                		break;
+                
                     case 2:
-                        if (dataSetB != null && !dataSetB.isEmpty()) {
-                            System.out.println("\n--- DataSet B (Complete) ---");
-                            System.out.println("Total rows: " + dataSetB.size());
-                            printDataSet(dataSetB);
-                        } else {
-                            System.out.println("\nNo data (DataSetB) was loaded or an error occurred during reading.");
-                        }
-                        break;
-                        
-                    case 3:
-                        if (dataSetA != null && !dataSetA.isEmpty()) {
-                            System.out.println("\n--- DataSet A (First " + BITMAPS_TO_DISPLAY + " bitmaps) ---");
-                            System.out.println("Total rows: " + dataSetA.size());
-                            printLimitedDataSet(dataSetA);
-                        } else {
-                            System.out.println("\nNo data (DataSetA) was loaded or an error occurred during reading.");
-                        }
-                        break;
-                        
-                    case 4:
-                        if (dataSetB != null && !dataSetB.isEmpty()) {
-                            System.out.println("\n--- DataSet B (First " + BITMAPS_TO_DISPLAY + " bitmaps) ---");
-                            System.out.println("Total rows: " + dataSetB.size());
-                            printLimitedDataSet(dataSetB);
-                        } else {
-                            System.out.println("\nNo data (DataSetB) was loaded or an error occurred during reading.");
-                        }
-                        break;
-                        
-                    case 5:
                     	EuclideanDistance(dataSetA, dataSetB);
                         break;
                         
