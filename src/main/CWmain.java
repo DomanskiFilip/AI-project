@@ -8,8 +8,72 @@ public class CWmain {
 
     private static final String DATASET_A_FILE_PATH = "datasets/dataSetA.csv";
     private static final String DATASET_B_FILE_PATH = "datasets/dataSetB.csv";
-    private static final int BIT_OF_DIGIT = 65;
+    private static final int BIT_OF_DIGIT = 65; // 64 bits + 1 category
     private static final int BITMAPS_TO_DISPLAY = 20;
+
+
+    // placeholder Algorythm interface
+    public interface Algorithm {
+        int predict(List<Integer> sample, List<List<Integer>> referenceSet, int bitOfDigit);
+    }
+
+    private static final Algorithm EUCLIDEAN_DISTANCE = new EuclideanDistance();
+    private static final Algorithm MULTI_LAYER_PERCEPTRON = new MultiLayerPerceptron();
+
+    // Euclidean Distance Algorythm
+    private static class EuclideanDistance implements Algorithm {
+
+        @Override
+        public int predict(List<Integer> sample, List<List<Integer>> referenceSet, int bitOfDigit) {
+            if (referenceSet == null || referenceSet.isEmpty()) {
+                throw new IllegalArgumentException("Reference dataset must not be null or empty.");
+            }
+
+            double minDistance = Double.MAX_VALUE;
+            List<Integer> closest = null;
+
+            for (int c = 0; c < referenceSet.size(); c++) {
+                List<Integer> candidate = referenceSet.get(c);
+                double sum = 0.0;
+                for (int i = 0; i < bitOfDigit - 1; i++) {
+                    double distance = sample.get(i) - candidate.get(i);
+                    sum += distance * distance;
+                }
+                if (sum < minDistance) {
+                    minDistance = sum;
+                    closest = candidate;
+                }
+            }
+
+            return closest != null ? closest.get(bitOfDigit - 1) : -1;
+        }
+    }
+    
+    // Multi Layer Perceptron Algorythm
+    private static class MultiLayerPerceptron implements Algorithm {
+        @Override
+        public int predict(List<Integer> sample, List<List<Integer>> referenceSet, int bitOfDigit) {
+            
+        }
+    }
+
+    // function to evaluate success rate of inputed algorithm
+    private static void evaluateAlgorithm(List<List<Integer>> dataSetA, List<List<Integer>> dataSetB, Algorithm algorithm, String label) {
+        int correctMatches = 0;
+        for (int s = 0; s < dataSetA.size(); s++) {
+            List<Integer> sample = dataSetA.get(s);
+            int actualDigit = sample.get(BIT_OF_DIGIT - 1);
+            int predictedDigit = algorithm.predict(sample, dataSetB, BIT_OF_DIGIT);
+            if (actualDigit == predictedDigit) {
+                correctMatches++;
+            }
+        }
+
+        double successRate = (correctMatches / (double) dataSetA.size()) * 100.0;
+        System.out.println("\n--- " + label + " Success Rate ---");
+        System.out.println("Correct Matches: " + correctMatches + " / " + dataSetA.size());
+        System.out.println("Success Rate: " + successRate + "%");
+    }
 
     // function to read the csv files 
     private static List<List<Integer>> readCsvFile(String DATASET_A_FILE_PATH, int BIT_OF_DIGIT) {
@@ -102,53 +166,9 @@ public class CWmain {
             System.out.println("]");
         }
     }
-
-    // Euclidean Distance
-    private static void EuclideanDistance(List<List<Integer>> dataSetA, List<List<Integer>> dataSetB) {
-        int correctMatches = 0; // Count of correct matches
-        int totalComparisons = dataSetA.size(); // Total rows in dataSetA
-
-        for (int aIndex = 0; aIndex < dataSetA.size(); aIndex++) {
-            List<Integer> selectedRow = dataSetA.get(aIndex);
-            int actualDigit = selectedRow.get(BIT_OF_DIGIT - 1); // The 65th value (category)
-
-            double minDistance = Double.MAX_VALUE;
-            int closestRowIndex = -1;
-            
-            // Euclidian distance calculation
-            for (int bIndex = 0; bIndex < dataSetB.size(); bIndex++) {
-                List<Integer> currentRow = dataSetB.get(bIndex);
-
-                double sum = 0.0;
-                for (int j = 0; j < BIT_OF_DIGIT - 1; j++) { // Only compare the first 64 values
-                    double diff = selectedRow.get(j) - currentRow.get(j);
-                    sum += diff * diff;
-                }
-                double distance = Math.sqrt(sum);
-
-                // update the closest row if the current distance is smaller
-                if (distance < minDistance) {
-                    minDistance = distance;
-                    closestRowIndex = bIndex;
-                }
-            }
-
-            // Check if the closest row has the same category (digit)
-            int predictedDigit = dataSetB.get(closestRowIndex).get(BIT_OF_DIGIT - 1); // The 65th value (category)
-            if (actualDigit == predictedDigit) {
-                correctMatches++;
-            }
-        }
-
-        // calculate and display the success rate
-        double successRate = (correctMatches / (double) totalComparisons) * 100;
-        System.out.println("\n--- Euclidean Distance Success Rate ---");
-        System.out.println("Correct Matches: " + correctMatches + " / " + totalComparisons);
-        System.out.println("Success Rate: " + successRate + "%");
-    }
-    
+        
     // user subinterface for prints
-    private static void PrintUserInterface(List<List<Integer>> dataSetA ,List<List<Integer>> dataSetB) {
+    private static void PrintDataUserInterface(List<List<Integer>> dataSetA ,List<List<Integer>> dataSetB) {
     	Scanner scanner = new Scanner(System.in); 
         boolean running = true;
         
@@ -228,20 +248,24 @@ public class CWmain {
             System.out.println("\n=== Actions: ===");
             System.out.println("1 -> Printing datasets options");
             System.out.println("2 -> Euclidean Distance");
-            System.out.println("0 -> Exit");
-            System.out.print("\nEnter your choice (0-2): ");
+            System.out.println("3 -> Multi Layer Perceptron");            System.out.println("0 -> Exit");
+            System.out.print("\nEnter your choice (0-3): ");
             
             try {
                 int choice = scanner.nextInt();
                 
                 switch (choice) {
                 	case 1:
-                		PrintUserInterface(dataSetA, dataSetB);
+                		PrintDataUserInterface(dataSetA, dataSetB);
                 		break;
                 
                     case 2:
-                    	EuclideanDistance(dataSetA, dataSetB);
+                    	evaluateAlgorithm(dataSetA, dataSetB, EUCLIDEAN_DISTANCE, "Euclidean Distance");
                         break;
+                        
+                    case 3:
+                    	evaluateAlgorithm(dataSetA, dataSetB, MULTI_LAYER_PERCEPTRON, "Multi Layer Perceptron");
+                    	break;
                         
                     case 0:
                         System.out.println("\nExiting");
@@ -262,10 +286,11 @@ public class CWmain {
     }
     
 	public static void main(String[] args) {
+        // read datasets
 	    List<List<Integer>> dataSetA = readCsvFile(DATASET_A_FILE_PATH, BIT_OF_DIGIT);
 	    List<List<Integer>> dataSetB = readCsvFile(DATASET_B_FILE_PATH, BIT_OF_DIGIT);
 	    
+        // start user interface
 	    UserInterface(dataSetA, dataSetB);
-	    
 	}
 }
