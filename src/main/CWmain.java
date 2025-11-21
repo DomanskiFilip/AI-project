@@ -2,6 +2,7 @@ package main;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 import java.util.Scanner;
 
 public class CWmain {
@@ -51,14 +52,190 @@ public class CWmain {
     
     // Multi Layer Perceptron Algorythm
     private static class MultiLayerPerceptron implements Algorithm {
+        // modify these parameters to tune the neural network:
+        private static final int PERCEPTRONS = 100; // number of neurons in the hidden layer
+        private static final int EPOCHS = 50; // number of training iterations
+        private static final double LEARNING_RATE = 0.1; // learning rate for weight update
+        private static final long RANDOM_SEED = 42; // Fixed seed for the random number generator to ensure reproducibility.
+        // This guarantees that the weights and biases are initialized to the same starting values every time the program is run, leading to consistent results
+
+
+        // fixed parameters:
+        private static final int CLASSES = 10; // number of classes (digits 0-9)
+        private double[][] weightsInputHidden;  // weights between input and hidden layer [perceptron][features]
+        private double[] biasHidden; // biases for hidden layer
+        private double[][] weightsHiddenOutput; // weights between hidden and output layer [classes][perceptron]
+        private double[] biasOutput; // biases for output layer
+        private boolean trained = false;
+        private int BitmapSize = -1; // Bitmap size minus bit representing digit
+
         @Override
         public int predict(List<Integer> sample, List<List<Integer>> referenceSet, int bitOfDigit) {
-            
+            if (!trained) {
+                train(referenceSet, bitOfDigit);  // Train the network on the reference set 
+            }
+            double[] inputs = toInputVector(sample, bitOfDigit);
+            double[] outputs = forward(inputs);
+            int bestIndex = 0;
+            double bestValue = outputs[0];
+            for (int i = 1; i < outputs.length; i++) {
+                if (outputs[i] > bestValue) {
+                    bestValue = outputs[i];
+                    bestIndex = i;
+                }
+            }
+            return bestIndex;
+        }
+
+        private void train(List<List<Integer>> trainingSet, int bitOfDigit) {
+            if (trainingSet == null || trainingSet.isEmpty()) {
+                throw new IllegalArgumentException("Training set is empty.");
+            }
+            BitmapSize = bitOfDigit - 1; // initialize Bitmap size
+            initializeWeights();
+
+            // loop running epochs of training
+            for (int epoch = 0; epoch < EPOCHS; epoch++) {
+                for (List<Integer> row : trainingSet) {
+                    double[] inputs = toInputVector(row, bitOfDigit);
+                    int label = clampLabel(row.get(bitOfDigit - 1));
+                    double[] hidden = new double[PERCEPTRONS];
+                    double[] outputs = new double[CLASSES];
+
+                    for (int h = 0; h < PERCEPTRONS; h++) {
+                        double sum = biasHidden[h];
+                        for (int i = 0; i < BitmapSize; i++) {
+                            sum += weightsInputHidden[h][i] * inputs[i];
+                        }
+                        hidden[h] = sigmoid(sum);
+                    }
+
+                    for (int o = 0; o < CLASSES; o++) {
+                        double sum = biasOutput[o];
+                        for (int h = 0; h < PERCEPTRONS; h++) {
+                            sum += weightsHiddenOutput[o][h] * hidden[h];
+                        }
+                        outputs[o] = sigmoid(sum);
+                    }
+
+                    double[] target = new double[CLASSES];
+                    target[label] = 1.0;
+
+                    double[] outputDeltas = new double[CLASSES];
+                    for (int o = 0; o < CLASSES; o++) {
+                        double error = target[o] - outputs[o];
+                        outputDeltas[o] = error * sigmoidDerivative(outputs[o]);
+                    }
+
+                    double[] hiddenDeltas = new double[PERCEPTRONS];
+                    for (int h = 0; h < PERCEPTRONS; h++) {
+                        double error = 0.0;
+                        for (int o = 0; o < CLASSES; o++) {
+                            error += outputDeltas[o] * weightsHiddenOutput[o][h];
+                        }
+                        hiddenDeltas[h] = error * sigmoidDerivative(hidden[h]);
+                    }
+
+                    for (int o = 0; o < CLASSES; o++) {
+                        for (int h = 0; h < PERCEPTRONS; h++) {
+                            weightsHiddenOutput[o][h] += LEARNING_RATE * outputDeltas[o] * hidden[h];
+                        }
+                        biasOutput[o] += LEARNING_RATE * outputDeltas[o];
+                    }
+
+                    for (int h = 0; h < PERCEPTRONS; h++) {
+                        for (int i = 0; i < BitmapSize; i++) {
+                            weightsInputHidden[h][i] += LEARNING_RATE * hiddenDeltas[h] * inputs[i];
+                        }
+                        biasHidden[h] += LEARNING_RATE * hiddenDeltas[h];
+                    }
+                }
+            }
+
+            trained = true;
+        }
+
+        // method to initialize weights and biases
+        private void initializeWeights() {
+            weightsInputHidden = new double[PERCEPTRONS][BitmapSize];
+            biasHidden = new double[PERCEPTRONS];
+            weightsHiddenOutput = new double[CLASSES][PERCEPTRONS];
+            biasOutput = new double[CLASSES];
+            Random random = new Random(RANDOM_SEED);
+
+            double range = 0.05;
+            for (int h = 0; h < PERCEPTRONS; h++) {
+                biasHidden[h] = (random.nextDouble() * 2 - 1) * range;
+                for (int i = 0; i < BitmapSize; i++) {
+                    weightsInputHidden[h][i] = (random.nextDouble() * 2 - 1) * range;
+                }
+            }
+            for (int o = 0; o < CLASSES; o++) {
+                biasOutput[o] = (random.nextDouble() * 2 - 1) * range;
+                for (int h = 0; h < PERCEPTRONS; h++) {
+                    weightsHiddenOutput[o][h] = (random.nextDouble() * 2 - 1) * range;
+                }
+            }
+        }
+
+        // method for forward propagation
+        private double[] forward(double[] inputs) {
+            double[] hidden = new double[PERCEPTRONS];
+            for (int h = 0; h < PERCEPTRONS; h++) {
+                double sum = biasHidden[h];
+                for (int i = 0; i < BitmapSize; i++) {
+                    sum += weightsInputHidden[h][i] * inputs[i];
+                }
+                hidden[h] = sigmoid(sum);
+            }
+
+            double[] outputs = new double[CLASSES];
+            for (int o = 0; o < CLASSES; o++) {
+                double sum = biasOutput[o];
+                for (int h = 0; h < PERCEPTRONS; h++) {
+                    sum += weightsHiddenOutput[o][h] * hidden[h];
+                }
+                outputs[o] = sigmoid(sum);
+            }
+            return outputs;
+        }
+
+        private double[] toInputVector(List<Integer> sample, int bitOfDigit) {
+            double[] inputs = new double[bitOfDigit - 1];
+            for (int i = 0; i < bitOfDigit - 1; i++) {
+                inputs[i] = sample.get(i);
+            }
+            return inputs;
+        }
+
+        private int clampLabel(int label) {
+            if (label < 0) return 0;
+            if (label >= CLASSES) return CLASSES - 1;
+            return label;
+        }
+
+        private double sigmoid(double x) {
+            return 1.0 / (1.0 + Math.exp(-x));
+        }
+
+        private double sigmoidDerivative(double activatedValue) {
+            return activatedValue * (1.0 - activatedValue);
+        }
+
+        // Expose the parameters used for calculation
+        public String getParameters() {
+            return "Epochs: " + EPOCHS + ", Learning rate: " + LEARNING_RATE  + ", perceptrons: " + PERCEPTRONS + ", Random seed: " + RANDOM_SEED;
         }
     }
 
     // function to evaluate success rate of inputed algorithm
     private static void evaluateAlgorithm(List<List<Integer>> dataSetA, List<List<Integer>> dataSetB, Algorithm algorithm, String label) {
+         // If the provided algorithm is the MLP, print its configuration before running evaluation
+        if (algorithm instanceof MultiLayerPerceptron) {
+            System.out.println("\n--- " + label + " parameters used in calculation ---");
+            System.out.println(((MultiLayerPerceptron) algorithm).getParameters());
+        }
+        
         int correctMatches = 0;
         for (int s = 0; s < dataSetA.size(); s++) {
             List<Integer> sample = dataSetA.get(s);
