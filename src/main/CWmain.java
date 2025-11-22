@@ -53,7 +53,7 @@ public class CWmain {
     // Multi Layer Perceptron Algorythm
     private static class MultiLayerPerceptron implements Algorithm {
         // modify these parameters to tune the neural network:
-        private static final int PERCEPTRONS = 100; // number of neurons in the hidden layer
+        private static final int PERCEPTRONS = 200; // number of neurons in the hidden layer
         private static final int EPOCHS = 50; // number of training iterations
         private static final double LEARNING_RATE = 0.1; // learning rate for weight update
         private static final long RANDOM_SEED = 42; // Fixed seed for the random number generator to ensure reproducibility.
@@ -72,7 +72,7 @@ public class CWmain {
         @Override
         public int predict(List<Integer> sample, List<List<Integer>> referenceSet, int bitOfDigit) {
             if (!trained) {
-                train(referenceSet, bitOfDigit);  // Train the network on the reference set 
+                train(referenceSet, bitOfDigit);  // Train the network on the reference set (dataset A)
             }
             double[] inputs = toInputVector(sample, bitOfDigit);
             double[] outputs = forward(inputs);
@@ -98,10 +98,11 @@ public class CWmain {
             for (int epoch = 0; epoch < EPOCHS; epoch++) {
                 for (List<Integer> row : trainingSet) {
                     double[] inputs = toInputVector(row, bitOfDigit);
-                    int label = clampLabel(row.get(bitOfDigit - 1));
+                    int targetClass = row.get(bitOfDigit - 1);
                     double[] hidden = new double[PERCEPTRONS];
                     double[] outputs = new double[CLASSES];
 
+                    // forward pass to calculate hidden layer activations
                     for (int h = 0; h < PERCEPTRONS; h++) {
                         double sum = biasHidden[h];
                         for (int i = 0; i < BitmapSize; i++) {
@@ -110,6 +111,7 @@ public class CWmain {
                         hidden[h] = sigmoid(sum);
                     }
 
+                    // forward pass to calculate output layer activations
                     for (int o = 0; o < CLASSES; o++) {
                         double sum = biasOutput[o];
                         for (int h = 0; h < PERCEPTRONS; h++) {
@@ -119,15 +121,17 @@ public class CWmain {
                     }
 
                     double[] target = new double[CLASSES];
-                    target[label] = 1.0;
+                    target[targetClass] = 1.0;
 
                     double[] outputDeltas = new double[CLASSES];
+                    // calculate gradients for output layer
                     for (int o = 0; o < CLASSES; o++) {
                         double error = target[o] - outputs[o];
                         outputDeltas[o] = error * sigmoidDerivative(outputs[o]);
                     }
 
                     double[] hiddenDeltas = new double[PERCEPTRONS];
+                    // calculate gradients for hidden layer
                     for (int h = 0; h < PERCEPTRONS; h++) {
                         double error = 0.0;
                         for (int o = 0; o < CLASSES; o++) {
@@ -136,19 +140,21 @@ public class CWmain {
                         hiddenDeltas[h] = error * sigmoidDerivative(hidden[h]);
                     }
 
-                    for (int o = 0; o < CLASSES; o++) {
-                        for (int h = 0; h < PERCEPTRONS; h++) {
-                            weightsHiddenOutput[o][h] += LEARNING_RATE * outputDeltas[o] * hidden[h];
-                        }
-                        biasOutput[o] += LEARNING_RATE * outputDeltas[o];
-                    }
-
+                    // update weights and biases between hidden layer
                     for (int h = 0; h < PERCEPTRONS; h++) {
                         for (int i = 0; i < BitmapSize; i++) {
                             weightsInputHidden[h][i] += LEARNING_RATE * hiddenDeltas[h] * inputs[i];
                         }
                         biasHidden[h] += LEARNING_RATE * hiddenDeltas[h];
                     }
+
+                    // update weights and biases between output layer
+                    for (int o = 0; o < CLASSES; o++) {
+                        for (int h = 0; h < PERCEPTRONS; h++) {
+                            weightsHiddenOutput[o][h] += LEARNING_RATE * outputDeltas[o] * hidden[h];
+                        }
+                        biasOutput[o] += LEARNING_RATE * outputDeltas[o];
+                    } 
                 }
             }
 
@@ -163,7 +169,7 @@ public class CWmain {
             biasOutput = new double[CLASSES];
             Random random = new Random(RANDOM_SEED);
 
-            double range = 0.05;
+            double range = 0.1; // maximum absolute value for initial weights and biases
             for (int h = 0; h < PERCEPTRONS; h++) {
                 biasHidden[h] = (random.nextDouble() * 2 - 1) * range;
                 for (int i = 0; i < BitmapSize; i++) {
@@ -178,7 +184,7 @@ public class CWmain {
             }
         }
 
-        // method for forward propagation
+        // method for forward propagation (useing trained weights to predict the class)
         private double[] forward(double[] inputs) {
             double[] hidden = new double[PERCEPTRONS];
             for (int h = 0; h < PERCEPTRONS; h++) {
@@ -199,7 +205,8 @@ public class CWmain {
             }
             return outputs;
         }
-
+        
+        // method to read inputed values representing the digit from sample into input vector from int -> double
         private double[] toInputVector(List<Integer> sample, int bitOfDigit) {
             double[] inputs = new double[bitOfDigit - 1];
             for (int i = 0; i < bitOfDigit - 1; i++) {
@@ -208,16 +215,12 @@ public class CWmain {
             return inputs;
         }
 
-        private int clampLabel(int label) {
-            if (label < 0) return 0;
-            if (label >= CLASSES) return CLASSES - 1;
-            return label;
-        }
-
+        // Sigmoid method to describe sides of the perceptron activation
         private double sigmoid(double x) {
-            return 1.0 / (1.0 + Math.exp(-x));
+            return 1.0 / (1.0 + Math.exp(-x)); // exp() computes how the sigmoid will grow and divide the space
         }
 
+        // Derivative of the sigmoid method for backpropagation to adjust weights converting error to gradient
         private double sigmoidDerivative(double activatedValue) {
             return activatedValue * (1.0 - activatedValue);
         }
