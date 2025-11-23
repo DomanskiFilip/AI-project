@@ -53,8 +53,8 @@ public class CWmain {
     // Multi Layer Perceptron Algorythm
     private static class MultiLayerPerceptron implements Algorithm {
         // modify these parameters to tune the neural network:
-        private static final int PERCEPTRONS = 200; // number of neurons in the hidden layer
-        private static final int EPOCHS = 50; // number of training iterations
+        private static final int PERCEPTRONS = 500; // number of neurons in the hidden layer
+        private static final int EPOCHS = 500; // number of training iterations
         private static final double LEARNING_RATE = 0.1; // learning rate for weight update
         private static final long RANDOM_SEED = 42; // Fixed seed for the random number generator to ensure reproducibility.
         // This guarantees that the weights and biases are initialized to the same starting values every time the program is run, leading to consistent results
@@ -239,19 +239,20 @@ public class CWmain {
             System.out.println(((MultiLayerPerceptron) algorithm).getParameters());
         }
         
+        // counting correct predictions train on A, test on B
         int correctMatches = 0;
-        for (int s = 0; s < dataSetA.size(); s++) {
-            List<Integer> sample = dataSetA.get(s);
+        for (int s = 0; s < dataSetB.size(); s++) {
+            List<Integer> sample = dataSetB.get(s);
             int actualDigit = sample.get(BIT_OF_DIGIT - 1);
-            int predictedDigit = algorithm.predict(sample, dataSetB, BIT_OF_DIGIT);
+            int predictedDigit = algorithm.predict(sample, dataSetA, BIT_OF_DIGIT);
             if (actualDigit == predictedDigit) {
                 correctMatches++;
             }
         }
 
-        double successRate = (correctMatches / (double) dataSetA.size()) * 100.0;
+        double successRate = (correctMatches / (double) dataSetB.size()) * 100.0;
         System.out.println("\n--- " + label + " Success Rate ---");
-        System.out.println("Correct Matches: " + correctMatches + " / " + dataSetA.size());
+        System.out.println("Correct Matches: " + correctMatches + " / " + dataSetB.size());
         System.out.println("Success Rate: " + successRate + "%");
     }
 
@@ -441,11 +442,11 @@ public class CWmain {
                 		break;
                 
                     case 2:
-                    	evaluateAlgorithm(dataSetA, dataSetB, EUCLIDEAN_DISTANCE, "Euclidean Distance");
+                    	evaluateAlgorithm(dataSetA, dataSetB, EUCLIDEAN_DISTANCE, "Euclidean Distance"); // tarin on A, test on B
                         break;
                         
                     case 3:
-                    	evaluateAlgorithm(dataSetA, dataSetB, MULTI_LAYER_PERCEPTRON, "Multi Layer Perceptron");
+                    	evaluateAlgorithm(dataSetA, dataSetB, MULTI_LAYER_PERCEPTRON, "Multi Layer Perceptron"); // train on A, test on B
                     	break;
                         
                     case 0:
