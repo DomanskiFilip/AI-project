@@ -7,8 +7,8 @@ import java.util.Scanner;
 
 public class CWmain {
 
-    private static final String DATASET_A_FILE_PATH = "datasets/dataSetA.csv";
-    private static final String DATASET_B_FILE_PATH = "datasets/dataSetB.csv";
+    private static final String DATASET_A_FILE_PATH = "AI-project/datasets/dataSetA.csv";
+    private static final String DATASET_B_FILE_PATH = "AI-project/datasets/dataSetB.csv";
     private static final int BIT_OF_DIGIT = 65; // 64 bits + 1 category
     private static final int BITMAPS_TO_DISPLAY = 20;
 
@@ -428,7 +428,8 @@ public class CWmain {
             System.out.println("\n=== Actions: ===");
             System.out.println("1 -> Printing datasets options");
             System.out.println("2 -> Euclidean Distance");
-            System.out.println("3 -> Multi Layer Perceptron");            System.out.println("0 -> Exit");
+            System.out.println("3 -> Multi Layer Perceptron");
+            System.out.println("0 -> Exit");
             System.out.print("\nEnter your choice (0-3): ");
             
             try {
