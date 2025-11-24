@@ -7,19 +7,20 @@ import java.util.Scanner;
 
 public class CWmain {
 
-    private static final String DATASET_A_FILE_PATH = "AI-project/datasets/dataSetA.csv";
-    private static final String DATASET_B_FILE_PATH = "AI-project/datasets/dataSetB.csv";
-    private static final int BIT_OF_DIGIT = 65; // 64 bits + 1 category
+    private static final String DATASET_A_FILE_PATH = "datasets/dataSetA.csv";
+    private static final String DATASET_B_FILE_PATH = "datasets/dataSetB.csv";
+    private static final int BIT_OF_DIGIT = 65; // 64 bits + 1 category/class
     private static final int BITMAPS_TO_DISPLAY = 20;
 
 
     // placeholder Algorythm interface
     public interface Algorithm {
-        int predict(List<Integer> sample, List<List<Integer>> referenceSet, int bitOfDigit);
+        int predict(List<Integer> sample, List<List<Integer>> referenceSet, int bitOfDigit); // sample -> row to predict, referenceSet -> dataset A (normally), bitOfDigit -> total bits including class bit
     }
 
     private static final Algorithm EUCLIDEAN_DISTANCE = new EuclideanDistance();
     private static final Algorithm MULTI_LAYER_PERCEPTRON = new MultiLayerPerceptron();
+    private static final Algorithm SUPPORT_VECTOR_MACHINE = new SupportVectorMachine();
 
     // Euclidean Distance Algorythm
     private static class EuclideanDistance implements Algorithm {
@@ -231,6 +232,15 @@ public class CWmain {
         }
     }
 
+    private static class SupportVectorMachine implements Algorithm {
+
+        @Override
+        public int predict(List<Integer> sample, List<List<Integer>> referenceSet, int bitOfDigit) {
+            
+            return 0;
+        }
+    }
+
     // function to evaluate success rate of inputed algorithm
     private static void evaluateAlgorithm(List<List<Integer>> dataSetA, List<List<Integer>> dataSetB, Algorithm algorithm, String label) {
          // If the provided algorithm is the MLP, print its configuration before running evaluation
@@ -407,7 +417,8 @@ public class CWmain {
             case 0:
 		        System.out.println("\nExiting");
 		        running = false;
-		        break;
+		        break;// Placeholder implementation
+            // In a real scenario, this method would contain the logic for SVM prediction
 		        
 			    default:
 			        System.out.println("\nInvalid choice. Please enter a number corresponting to avaliable actions.");
@@ -430,8 +441,9 @@ public class CWmain {
             System.out.println("1 -> Printing datasets options");
             System.out.println("2 -> Euclidean Distance");
             System.out.println("3 -> Multi Layer Perceptron");
+            System.out.println("4 -> Support Vector Machine");
             System.out.println("0 -> Exit");
-            System.out.print("\nEnter your choice (0-3): ");
+            System.out.print("\nEnter your choice (0-4): ");
             
             try {
                 int choice = scanner.nextInt();
@@ -447,6 +459,9 @@ public class CWmain {
                         
                     case 3:
                     	evaluateAlgorithm(dataSetA, dataSetB, MULTI_LAYER_PERCEPTRON, "Multi Layer Perceptron"); // train on A, test on B
+                    	break;
+                    case 4:
+                    	evaluateAlgorithm(dataSetA, dataSetB, SUPPORT_VECTOR_MACHINE, "Support Vector Machine"); // train on A, test on B
                     	break;
                         
                     case 0:
