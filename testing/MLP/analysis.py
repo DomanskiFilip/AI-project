@@ -63,6 +63,7 @@ def plot_success_distribution(df):
         legend=False,
     )
     sns.stripplot(data=df, x="scenario", y="success rate", color="black", alpha=0.5)
+    plt.ylim(80, 100) 
     plt.title("Success Rate Distribution by Train/Test Split")
     plt.ylabel("Success Rate (%)")
     plt.show()
