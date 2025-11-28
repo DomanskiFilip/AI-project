@@ -9,35 +9,37 @@ public class CWmain {
 
     private static final String DATASET_A_FILE_PATH = "datasets/dataSetA.csv";
     private static final String DATASET_B_FILE_PATH = "datasets/dataSetB.csv";
-    private static final int BIT_OF_DIGIT = 65; // 64 bits + 1 category/class
+    private static final int ENTIRE_BITMAP_SIZE = 65; // 64 bits + 1 category/class
+    private static final int BITMAP_SIZE = ENTIRE_BITMAP_SIZE - 1; // Bitmap size minus bit representing digit
     private static final int BITMAPS_TO_DISPLAY = 20;
 
 
     // placeholder Algorythm interface
     public interface Algorithm {
-        int predict(List<Integer> sample, List<List<Integer>> referenceSet, int bitOfDigit); // sample -> row to predict, referenceSet -> dataset A (normally), bitOfDigit -> total bits including class bit
+        int predict(List<Integer> sample, List<List<Integer>> trainingSet); // sample -> row to predict, trainingSet -> dataset A (normally)
     }
 
     private static final Algorithm EUCLIDEAN_DISTANCE = new EuclideanDistance();
     private static final Algorithm MULTI_LAYER_PERCEPTRON = new MultiLayerPerceptron();
+    private static final Algorithm DISTANCE_FROM_CENTROID = new DistanceFromCentroid();
     private static final Algorithm SUPPORT_VECTOR_MACHINE = new SupportVectorMachine();
 
     // Euclidean Distance Algorythm
     private static class EuclideanDistance implements Algorithm {
 
         @Override
-        public int predict(List<Integer> sample, List<List<Integer>> referenceSet, int bitOfDigit) {
-            if (referenceSet == null || referenceSet.isEmpty()) {
-                throw new IllegalArgumentException("Reference dataset must not be null or empty.");
+        public int predict(List<Integer> sample, List<List<Integer>> trainingSet) {
+            if (trainingSet == null || trainingSet.isEmpty()) {
+                throw new IllegalArgumentException("Training dataset must not be null or empty.");
             }
 
             double minDistance = Double.MAX_VALUE;
             List<Integer> closest = null;
 
-            for (int c = 0; c < referenceSet.size(); c++) {
-                List<Integer> candidate = referenceSet.get(c);
+            for (int c = 0; c < trainingSet.size(); c++) {
+                List<Integer> candidate = trainingSet.get(c);
                 double sum = 0.0;
-                for (int i = 0; i < bitOfDigit - 1; i++) {
+                for (int i = 0; i < BITMAP_SIZE; i++) {
                     double distance = sample.get(i) - candidate.get(i);
                     sum += distance * distance;
                 }
@@ -47,7 +49,7 @@ public class CWmain {
                 }
             }
 
-            return closest != null ? closest.get(bitOfDigit - 1) : -1;
+            return closest != null ? closest.get(BITMAP_SIZE) : -1;
         }
     }
     
@@ -68,14 +70,13 @@ public class CWmain {
         private double[][] weightsHiddenOutput; // weights between hidden and output layer [classes][perceptron]
         private double[] biasOutput; // biases for output layer
         private boolean trained = false;
-        private int BitmapSize = -1; // Bitmap size minus bit representing digit
 
         @Override
-        public int predict(List<Integer> sample, List<List<Integer>> referenceSet, int bitOfDigit) {
+        public int predict(List<Integer> sample, List<List<Integer>> trainingSet) {
             if (!trained) {
-                train(referenceSet, bitOfDigit);  // Train the network on the reference set (dataset A)
+                train(trainingSet);  // Train the network on the trainingSet set (dataset A)
             }
-            double[] inputs = toInputVector(sample, bitOfDigit);
+            double[] inputs = toInputVector(sample);
             double[] outputs = forward(inputs);
             int bestIndex = 0;
             double bestValue = outputs[0];
@@ -88,25 +89,24 @@ public class CWmain {
             return bestIndex;
         }
 
-        private void train(List<List<Integer>> trainingSet, int bitOfDigit) {
+        private void train(List<List<Integer>> trainingSet) {
             if (trainingSet == null || trainingSet.isEmpty()) {
                 throw new IllegalArgumentException("Training set is empty.");
             }
-            BitmapSize = bitOfDigit - 1; // initialize Bitmap size
             initializeWeights();
 
             // loop running epochs of training
             for (int epoch = 0; epoch < EPOCHS; epoch++) {
                 for (List<Integer> row : trainingSet) {
-                    double[] inputs = toInputVector(row, bitOfDigit);
-                    int targetClass = row.get(bitOfDigit - 1);
+                    double[] inputs = toInputVector(row);
+                    int targetClass = row.get(BITMAP_SIZE);
                     double[] hidden = new double[PERCEPTRONS];
                     double[] outputs = new double[CLASSES];
 
                     // forward pass to calculate hidden layer activations
                     for (int h = 0; h < PERCEPTRONS; h++) {
                         double sum = biasHidden[h];
-                        for (int i = 0; i < BitmapSize; i++) {
+                        for (int i = 0; i < BITMAP_SIZE; i++) {
                             sum += weightsInputHidden[h][i] * inputs[i];
                         }
                         hidden[h] = sigmoid(sum);
@@ -143,7 +143,7 @@ public class CWmain {
 
                     // update weights and biases between hidden layer
                     for (int h = 0; h < PERCEPTRONS; h++) {
-                        for (int i = 0; i < BitmapSize; i++) {
+                        for (int i = 0; i < BITMAP_SIZE; i++) {
                             weightsInputHidden[h][i] += LEARNING_RATE * hiddenDeltas[h] * inputs[i];
                         }
                         biasHidden[h] += LEARNING_RATE * hiddenDeltas[h];
@@ -164,7 +164,7 @@ public class CWmain {
 
         // method to initialize weights and biases
         private void initializeWeights() {
-            weightsInputHidden = new double[PERCEPTRONS][BitmapSize];
+            weightsInputHidden = new double[PERCEPTRONS][BITMAP_SIZE];
             biasHidden = new double[PERCEPTRONS];
             weightsHiddenOutput = new double[CLASSES][PERCEPTRONS];
             biasOutput = new double[CLASSES];
@@ -173,7 +173,7 @@ public class CWmain {
             double range = 0.1; // maximum absolute value for initial weights and biases
             for (int h = 0; h < PERCEPTRONS; h++) {
                 biasHidden[h] = (random.nextDouble() * 2 - 1) * range;
-                for (int i = 0; i < BitmapSize; i++) {
+                for (int i = 0; i < BITMAP_SIZE; i++) {
                     weightsInputHidden[h][i] = (random.nextDouble() * 2 - 1) * range;
                 }
             }
@@ -190,7 +190,7 @@ public class CWmain {
             double[] hidden = new double[PERCEPTRONS];
             for (int h = 0; h < PERCEPTRONS; h++) {
                 double sum = biasHidden[h];
-                for (int i = 0; i < BitmapSize; i++) {
+                for (int i = 0; i < BITMAP_SIZE; i++) {
                     sum += weightsInputHidden[h][i] * inputs[i];
                 }
                 hidden[h] = sigmoid(sum);
@@ -208,9 +208,9 @@ public class CWmain {
         }
         
         // method to read inputed values representing the digit from sample into input vector from int -> double
-        private double[] toInputVector(List<Integer> sample, int bitOfDigit) {
-            double[] inputs = new double[bitOfDigit - 1];
-            for (int i = 0; i < bitOfDigit - 1; i++) {
+        private double[] toInputVector(List<Integer> sample) {
+            double[] inputs = new double[BITMAP_SIZE];
+            for (int i = 0; i < BITMAP_SIZE; i++) {
                 inputs[i] = sample.get(i);
             }
             return inputs;
@@ -232,12 +232,67 @@ public class CWmain {
         }
     }
 
-    private static class SupportVectorMachine implements Algorithm {
+    // helper function for calculateing centroids of each class for SVM and Distance from Centroid algorythms
+    public static double[][] calculateCentroids(List<List<Integer>> trainingSet) {
+        double[][] centroids = new double[10][BITMAP_SIZE];
 
+        // Initialize arrays to store sum and count for each class
+        double[][] sumPerClass = new double[10][BITMAP_SIZE];
+        int[] countPerClass = new int[10];
+
+        // Sum all dimensions for each digit/class
+        for (List<Integer> row : trainingSet) {
+            int instance = row.get(BITMAP_SIZE);
+            countPerClass[instance]++;
+            for (int i = 0; i < BITMAP_SIZE; i++) {
+                sumPerClass[instance][i] += row.get(i);
+            }
+        }
+
+        // Calculate centroid for each class
+        for (int digit = 0; digit < 10; digit++) {
+            if (countPerClass[digit] > 0) {
+                for (int i = 0; i < BITMAP_SIZE; i++) {
+                    centroids[digit][i] = sumPerClass[digit][i] / countPerClass[digit];
+                }
+            }
+        }
+        return centroids;
+    }
+
+    private static class DistanceFromCentroid implements Algorithm {
+        
         @Override
-        public int predict(List<Integer> sample, List<List<Integer>> referenceSet, int bitOfDigit) {
-            
-            return 0;
+        public int predict(List<Integer> sample, List<List<Integer>> trainingSet) {
+            double[][] centroids = calculateCentroids(trainingSet);
+
+            double minDistance = Double.MAX_VALUE;
+            int closestClass = -1;
+
+            for (int digit = 0; digit < 10; digit++) {
+                double sum = 0.0;
+                for (int i = 0; i < BITMAP_SIZE; i++) {
+                    double diff = sample.get(i) - centroids[digit][i];
+                    sum += diff * diff;
+                }
+                double distance = Math.sqrt(sum);
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    closestClass = digit;
+                }
+            }
+
+            return closestClass;
+        }
+
+    }
+
+    private static class SupportVectorMachine implements Algorithm {
+        @Override
+        public int predict(List<Integer> sample, List<List<Integer>> trainingSet) {
+            double[][] centroids = calculateCentroids(trainingSet);
+
+            return 0; 
         }
     }
 
@@ -253,8 +308,8 @@ public class CWmain {
         int correctMatches = 0;
         for (int s = 0; s < dataSetB.size(); s++) {
             List<Integer> sample = dataSetB.get(s);
-            int actualDigit = sample.get(BIT_OF_DIGIT - 1);
-            int predictedDigit = algorithm.predict(sample, dataSetA, BIT_OF_DIGIT);
+            int actualDigit = sample.get(BITMAP_SIZE);
+            int predictedDigit = algorithm.predict(sample, dataSetA);
             if (actualDigit == predictedDigit) {
                 correctMatches++;
             }
@@ -267,27 +322,26 @@ public class CWmain {
     }
 
     // function to read the csv files 
-    private static List<List<Integer>> readCsvFile(String DATASET_A_FILE_PATH, int BIT_OF_DIGIT) {
+    private static List<List<Integer>> readCsvFile(String dataSetFilePath) {
         List<List<Integer>> dataSet = new ArrayList<>();
         int rowCount = 0;
 
-        System.out.println("Starting to read CSV file: " + DATASET_A_FILE_PATH);
-
-        try (Scanner scanner = new Scanner(new java.io.File(DATASET_A_FILE_PATH))) {
+        System.out.println("Starting to read CSV file: " + dataSetFilePath);
+        try (Scanner scanner = new Scanner(new java.io.File(dataSetFilePath))) {
             while (scanner.hasNextLine()) {
                 String line = scanner.nextLine();
                 String[] values = line.split(",");
 
                 // Ensure the row has the expected number of columns
-                if (values.length != BIT_OF_DIGIT) {
-                    System.err.println("Warning: Row " + (rowCount + 1) + " has " + values.length + " columns, expected " + BIT_OF_DIGIT + ". Skipping row.");
+                if (values.length != ENTIRE_BITMAP_SIZE) {
+                    System.err.println("Warning: Row " + (rowCount + 1) + " has " + values.length + " columns, expected " + ENTIRE_BITMAP_SIZE + ". Skipping row.");
                     continue;
                 }
 
                 List<Integer> currentRow = new ArrayList<>();
                 boolean conversionError = false;
 
-                for (int i = 0; i < BIT_OF_DIGIT; i++) {
+                for (int i = 0; i < ENTIRE_BITMAP_SIZE; i++) {
                     try {
                         currentRow.add(Integer.parseInt(values[i].trim()));
                     } catch (NumberFormatException error) {
@@ -306,7 +360,7 @@ public class CWmain {
 
         } catch (IOException error) {
             System.err.println("\n--- ERROR: Failed to read the file ---");
-            System.err.println("Ensure the file exists at the correct path: " + DATASET_A_FILE_PATH);
+            System.err.println("Ensure the file exists at the correct path: " + dataSetFilePath);
             System.err.println("Details: " + error.getMessage());
             return null;
         }
@@ -441,7 +495,8 @@ public class CWmain {
             System.out.println("1 -> Printing datasets options");
             System.out.println("2 -> Euclidean Distance");
             System.out.println("3 -> Multi Layer Perceptron");
-            System.out.println("4 -> Support Vector Machine");
+            System.out.println("4 -> Distance From Centroid");
+            System.out.println("5 -> Support Vector Machine");
             System.out.println("0 -> Exit");
             System.out.print("\nEnter your choice (0-4): ");
             
@@ -460,10 +515,15 @@ public class CWmain {
                     case 3:
                     	evaluateAlgorithm(dataSetA, dataSetB, MULTI_LAYER_PERCEPTRON, "Multi Layer Perceptron"); // train on A, test on B
                     	break;
+
                     case 4:
-                    	evaluateAlgorithm(dataSetA, dataSetB, SUPPORT_VECTOR_MACHINE, "Support Vector Machine"); // train on A, test on B
+                    	evaluateAlgorithm(dataSetB, dataSetA, DISTANCE_FROM_CENTROID, "Distance From Centroid"); // train on A, test on B
                     	break;
-                        
+                    
+                    case 5:
+                        evaluateAlgorithm(dataSetA, dataSetB, SUPPORT_VECTOR_MACHINE, "Support Vector Machine"); // train on A, test on B
+                        break;
+
                     case 0:
                         System.out.println("\nExiting");
                         running = false;
@@ -484,8 +544,8 @@ public class CWmain {
     
 	public static void main(String[] args) {
         // read datasets
-	    List<List<Integer>> dataSetA = readCsvFile(DATASET_A_FILE_PATH, BIT_OF_DIGIT);
-	    List<List<Integer>> dataSetB = readCsvFile(DATASET_B_FILE_PATH, BIT_OF_DIGIT);
+	    List<List<Integer>> dataSetA = readCsvFile(DATASET_A_FILE_PATH);
+	    List<List<Integer>> dataSetB = readCsvFile(DATASET_B_FILE_PATH);
 	    
         // start user interface
 	    UserInterface(dataSetA, dataSetB);
