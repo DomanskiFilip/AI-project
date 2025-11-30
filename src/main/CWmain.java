@@ -3,6 +3,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.PriorityQueue;
 import java.util.Random;
 import java.util.Scanner;
 
@@ -24,6 +25,7 @@ public class CWmain {
     private static final Algorithm MULTI_LAYER_PERCEPTRON = new MultiLayerPerceptron();
     private static final Algorithm DISTANCE_FROM_CENTROID = new DistanceFromCentroid();
     private static final Algorithm SUPPORT_VECTOR_MACHINE = new SupportVectorMachine();
+    private static final Algorithm K_NEAREST_NEIGHBOUR = new K_NEAREST_NEIGHBOUR();
 
     // Euclidean Distance Algorythm
     private static class EuclideanDistance implements Algorithm {
@@ -39,7 +41,7 @@ public class CWmain {
 
             for (int c = 0; c < trainingSet.size(); c++) {
                 List<Integer> candidate = trainingSet.get(c);
-                double sum = 0.0;
+                double sum = 0;
                 for (int i = 0; i < BITMAP_SIZE; i++) {
                     double distance = sample.get(i) - candidate.get(i);
                     sum += distance * distance;
@@ -135,7 +137,7 @@ public class CWmain {
                     double[] hiddenDeltas = new double[PERCEPTRONS];
                     // calculate gradients for hidden layer
                     for (int h = 0; h < PERCEPTRONS; h++) {
-                        double error = 0.0;
+                        double error = 0;
                         for (int o = 0; o < CLASSES; o++) {
                             error += outputDeltas[o] * weightsHiddenOutput[o][h];
                         }
@@ -272,7 +274,7 @@ public class CWmain {
             int closestClass = -1;
 
             for (int digit = 0; digit < 10; digit++) {
-                double sum = 0.0;
+                double sum = 0;
                 for (int i = 0; i < BITMAP_SIZE; i++) {
                     double diff = sample.get(i) - centroids[digit][i];
                     sum += diff * diff;
@@ -296,8 +298,9 @@ public class CWmain {
         private static final int FEATURE_SIZE = BITMAP_SIZE + EXTRA_FEATURES;
         private static final int MAX_EPOCHS = 500;
         private static final double LEARNING_RATE = 0.02;
-        private static final double MARGIN = 0.02; // minimum score gap before we accept a prediction
+        private static final double MARGIN = 0.002; // minimum score gap before we accept a prediction
         private static final long RANDOM_SEED = 42;
+
 
         private double[][] centroidCache;
         private double[] featureMeans = new double[FEATURE_SIZE]; // per-feature mean for normalization
@@ -463,7 +466,7 @@ public class CWmain {
             }
 
             for (int digit = 0; digit < CLASSES; digit++) {
-                double sum = 0.0;
+                double sum = 0;
                 for (int i = 0; i < BITMAP_SIZE; i++) {
                     double diff = sample.get(i) - centroids[digit][i];
                     sum += diff * diff;
@@ -522,8 +525,8 @@ public class CWmain {
 
         private void computeNormalizationStats(double[][] features) {
             for (int f = 0; f < FEATURE_SIZE; f++) {
-                double sum = 0.0;
-                double sumSq = 0.0;
+                double sum = 0;
+                double sumSq = 0;
                 for (double[] vector : features) {
                     sum += vector[f];
                     sumSq += vector[f] * vector[f];
@@ -531,7 +534,7 @@ public class CWmain {
                 double mean = sum / features.length;
                 double variance = (sumSq / features.length) - (mean * mean);
                 featureMeans[f] = mean;
-                featureStdDevs[f] = Math.max(Math.sqrt(Math.max(variance, 0.0)), 1e-9);
+                featureStdDevs[f] = Math.max(Math.sqrt(Math.max(variance, 0)), 1e-9);
             }
         }
 
@@ -611,6 +614,43 @@ public class CWmain {
         }
     }
 
+    private static class K_NEAREST_NEIGHBOUR implements Algorithm {
+
+        private static final int K = 3;
+
+         @Override
+        public Object predict(List<Integer> sample, List<List<Integer>> trainingSet) {
+            PriorityQueue<double[]> heap = new PriorityQueue<>((a, b) -> Double.compare(b[0], a[0]));
+            for (List<Integer> candidate : trainingSet) {
+                double distance = 0;
+                for (int i = 0; i < BITMAP_SIZE; i++) {
+                    double diff = sample.get(i) - candidate.get(i);
+                    distance += diff * diff;
+                }
+                if (heap.size() < K) {
+                    heap.offer(new double[] {distance, candidate.get(BITMAP_SIZE)});
+                } else if (distance < heap.peek()[0]) {
+                    heap.poll();
+                    heap.offer(new double[] {distance, candidate.get(BITMAP_SIZE)});
+                }
+            }
+            int[] votes = new int[10];
+            while (!heap.isEmpty()) {
+                int digit = (int) heap.poll()[1];
+                votes[digit]++;
+            }
+            int bestDigit = 0;
+            int bestVotes = 0;
+            for (int digit = 0; digit < votes.length; digit++) {
+                if (votes[digit] > bestVotes) {
+                    bestVotes = votes[digit];
+                    bestDigit = digit;
+                }
+            }
+            return Integer.valueOf(bestDigit);
+        }
+    }
+
     // function to evaluate success rate of inputed algorithm
     private static void evaluateAlgorithm(List<List<Integer>> dataSetA, List<List<Integer>> dataSetB, Algorithm algorithm, String label) {
         if (algorithm instanceof SupportVectorMachine svm) {
@@ -625,9 +665,9 @@ public class CWmain {
             double size = dataSetB.size();
             System.out.println("\n--- " + label + " Success Rate ---");
             System.out.println("1-vs-Rest Correct: " + correctOneVsRest + " / " + dataSetB.size());
-            System.out.println("1-vs-Rest Success Rate: " + (correctOneVsRest / size) * 100.0 + "%");
+            System.out.println("1-vs-Rest Success Rate: " + (correctOneVsRest / size) * 100 + "%");
             System.out.println("1-vs-1 Correct: " + correctOneVsOne + " / " + dataSetB.size());
-            System.out.println("1-vs-1 Success Rate: " + (correctOneVsOne / size) * 100.0 + "%");
+            System.out.println("1-vs-1 Success Rate: " + (correctOneVsOne / size) * 100 + "%");
             return;
         }
 
@@ -646,7 +686,7 @@ public class CWmain {
             }
         }
 
-        double successRate = (correctMatches / (double) dataSetB.size()) * 100.0;
+        double successRate = (correctMatches / (double) dataSetB.size()) * 100;
         System.out.println("\n--- " + label + " Success Rate ---");
         System.out.println("Correct Matches: " + correctMatches + " / " + dataSetB.size());
         System.out.println("Success Rate: " + successRate + "%");
@@ -826,6 +866,7 @@ public class CWmain {
             System.out.println("3 -> Multi Layer Perceptron");
             System.out.println("4 -> Distance From Centroid");
             System.out.println("5 -> Support Vector Machine");
+            System.out.println("6 -> K Nearest Neighbour");
             System.out.println("0 -> Exit");
             System.out.print("\nEnter your choice (0-4): ");
             
@@ -845,11 +886,15 @@ public class CWmain {
                         evaluateAlgorithm(dataSetA, dataSetB, MULTI_LAYER_PERCEPTRON, "Multi Layer Perceptron"); // train on A, test on B
                         break;
                     case 4:
-                    	evaluateAlgorithm(dataSetB, dataSetA, DISTANCE_FROM_CENTROID, "Distance From Centroid"); // train on A, test on B
+                    	evaluateAlgorithm(dataSetA, dataSetB, DISTANCE_FROM_CENTROID, "Distance From Centroid"); // train on A, test on B
                     	break;
                     
                     case 5:
                         evaluateAlgorithm(dataSetA, dataSetB, SUPPORT_VECTOR_MACHINE, "Support Vector Machine"); // train on A, test on B
+                        break;
+
+                    case 6:
+                        evaluateAlgorithm(dataSetA, dataSetB, K_NEAREST_NEIGHBOUR, "K Nearest Neighbour"); // train on A, test on B
                         break;
 
                     case 0:
