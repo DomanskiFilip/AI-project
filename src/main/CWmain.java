@@ -744,14 +744,13 @@ public class CWmain {
     }
         
     // user subinterface for prints
-    private static void PrintDataUserInterface(List<List<Integer>> dataSetA ,List<List<Integer>> dataSetB) {
-    	Scanner scanner = new Scanner(System.in); 
+    private static void PrintDataUserInterface(List<List<Integer>> dataSetA ,List<List<Integer>> dataSetB, Scanner scanner) {
         boolean running = true;
         
         while (running) {
         System.out.println("\n=== Print Actions: ===");
         System.out.println("1 -> Print entire data set A");
-    	System.out.println("2 -> Print entire data set B");
+        System.out.println("2 -> Print entire data set B");
         System.out.println("3 -> Print " + BITMAPS_TO_DISPLAY + " bitmaps from data set A");
         System.out.println("4 -> Print " + BITMAPS_TO_DISPLAY + " bitmaps from data set B");
         System.out.println("0 -> Exit");
@@ -800,20 +799,19 @@ public class CWmain {
                 break;
                 
             case 0:
-		        System.out.println("\nExiting");
-		        running = false;
-		        break;// Placeholder implementation
-            // In a real scenario, this method would contain the logic for SVM prediction
-		        
-			    default:
-			        System.out.println("\nInvalid choice. Please enter a number corresponting to avaliable actions.");
-			}
-			
-			} catch (Exception error) {
-			System.out.println("\nInvalid input. Please enter a number corresponting to avaliable actions.");
-			scanner.nextLine(); // Clear the invalid input
-			}
-		}
+                System.out.println("\nExiting");
+                running = false;
+                break;
+                
+                default:
+                    System.out.println("\nInvalid choice. Please enter a number corresponting to avaliable actions.");
+            }
+            
+            } catch (Exception error) {
+            System.out.println("\nInvalid input. Please enter a number corresponting to avaliable actions.");
+            scanner.nextLine(); // Clear the invalid input
+            }
+        }
     }
     
     // user interface 
@@ -835,18 +833,17 @@ public class CWmain {
                 int choice = scanner.nextInt();
                 
                 switch (choice) {
-                	case 1:
-                		PrintDataUserInterface(dataSetA, dataSetB);
-                		break;
+                    case 1:
+                        PrintDataUserInterface(dataSetA, dataSetB, scanner);
+                        break;
                 
                     case 2:
-                    	evaluateAlgorithm(dataSetA, dataSetB, EUCLIDEAN_DISTANCE, "Euclidean Distance"); // tarin on A, test on B
+                        evaluateAlgorithm(dataSetA, dataSetB, EUCLIDEAN_DISTANCE, "Euclidean Distance"); // tarin on A, test on B
                         break;
                         
                     case 3:
-                    	evaluateAlgorithm(dataSetA, dataSetB, MULTI_LAYER_PERCEPTRON, "Multi Layer Perceptron"); // train on A, test on B
-                    	break;
-
+                        evaluateAlgorithm(dataSetA, dataSetB, MULTI_LAYER_PERCEPTRON, "Multi Layer Perceptron"); // train on A, test on B
+                        break;
                     case 4:
                     	evaluateAlgorithm(dataSetB, dataSetA, DISTANCE_FROM_CENTROID, "Distance From Centroid"); // train on A, test on B
                     	break;
