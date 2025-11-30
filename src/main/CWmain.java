@@ -1,6 +1,7 @@
 package main;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 import java.util.Scanner;
@@ -16,7 +17,7 @@ public class CWmain {
 
     // placeholder Algorythm interface
     public interface Algorithm {
-        int predict(List<Integer> sample, List<List<Integer>> trainingSet); // sample -> row to predict, trainingSet -> dataset A (normally)
+        int predict(List<Integer> sample, List<List<Integer>> trainingSet); // sample -> row to predict, trainingSet -> dataset A (usually)
     }
 
     private static final Algorithm EUCLIDEAN_DISTANCE = new EuclideanDistance();
@@ -288,23 +289,255 @@ public class CWmain {
     }
 
     private static class SupportVectorMachine implements Algorithm {
+        private static final int CLASSES = 10;
+        private static final int EXTRA_FEATURES = CLASSES;
+        private static final int FEATURE_SIZE = BITMAP_SIZE + EXTRA_FEATURES;
+        private static final int MAX_EPOCHS = 500;
+        private static final double LEARNING_RATE = 0.1;
+        private static final long RANDOM_SEED = 42;
+
+        private double[][] centroidCache;
+        private double[][] oneVsRestWeights = new double[CLASSES][FEATURE_SIZE];
+        private double[] oneVsRestBias = new double[CLASSES];
+        private List<BinaryPerceptron> pairwiseClassifiers = new ArrayList<>();
+        private boolean trained = false;
+
         @Override
         public int predict(List<Integer> sample, List<List<Integer>> trainingSet) {
-            double[][] centroids = calculateCentroids(trainingSet);
+            return predictDetailed(sample, trainingSet).oneVsRest;
+        }
 
-            return 0; 
+        public PredictionResult predictDetailed(List<Integer> sample, List<List<Integer>> trainingSet) {
+            if (!trained) {
+                train(trainingSet);
+                trained = true;
+            }
+            double[] features = projectToFeatureSpace(sample, centroidCache); // add 10 dimentions representing distance from centroids to sample
+            int oneVsRestPrediction = classifyOneVsRest(features); // predict using 1-vs-rest
+            int oneVsOnePrediction = pairwiseClassifiers.isEmpty() ? oneVsRestPrediction : classifyOneVsOne(features); // predict using 1-vs-1
+            return new PredictionResult(oneVsRestPrediction, oneVsOnePrediction);
+        }
+
+        private void train(List<List<Integer>> trainingSet) {
+            centroidCache = calculateCentroids(trainingSet);
+            double[][] featureMatrix = new double[trainingSet.size()][FEATURE_SIZE];
+            int[] labels = new int[trainingSet.size()];
+            for (int i = 0; i < trainingSet.size(); i++) {
+                List<Integer> row = trainingSet.get(i);
+                featureMatrix[i] = projectToFeatureSpace(row, centroidCache);
+                labels[i] = row.get(BITMAP_SIZE);
+            }
+            trainOneVsRest(featureMatrix, labels);
+            trainOneVsOne(featureMatrix, labels);
+        }
+
+        // training with useing just one vs rest seperator
+        private void trainOneVsRest(double[][] features, int[] labels) {
+            oneVsRestWeights = new double[CLASSES][FEATURE_SIZE];
+            oneVsRestBias = new double[CLASSES];
+            List<Integer> indices = new ArrayList<>();
+            for (int i = 0; i < labels.length; i++) {
+                indices.add(i);
+            }
+            Random rng = new Random(RANDOM_SEED);
+
+            for (int epoch = 0; epoch < MAX_EPOCHS; epoch++) {
+                Collections.shuffle(indices, rng);
+                int mistakes = 0;
+
+                for (int idx : indices) {
+                    double[] sample = features[idx];
+                    int target = labels[idx];
+                    int predicted = classifyOneVsRest(sample);
+                    if (predicted != target) {
+                        updateOneVsRestWeights(sample, target, predicted);
+                        mistakes++;
+                    }
+                }
+
+                if (mistakes == 0) {
+                    break;
+                }
+            }
+        }
+
+        // training with useing one vs one seperators
+        private void trainOneVsOne(double[][] features, int[] labels) {
+            pairwiseClassifiers = new ArrayList<>();
+            for (int classA = 0; classA < CLASSES; classA++) {
+                for (int classB = classA + 1; classB < CLASSES; classB++) {
+                    List<Integer> subset = new ArrayList<>();
+                    boolean hasA = false;
+                    boolean hasB = false;
+
+                    for (int i = 0; i < labels.length; i++) {
+                        if (labels[i] == classA) {
+                            subset.add(i);
+                            hasA = true;
+                        } else if (labels[i] == classB) {
+                            subset.add(i);
+                            hasB = true;
+                        }
+                    }
+
+                    if (!hasA || !hasB) {
+                        continue;
+                    }
+
+                    BinaryPerceptron perceptron = new BinaryPerceptron(classA, classB, FEATURE_SIZE);
+                    Random random = new Random(RANDOM_SEED + classA * CLASSES + classB);
+
+                    for (int epoch = 0; epoch < MAX_EPOCHS; epoch++) {
+                        Collections.shuffle(subset, random);
+                        boolean updated = false;
+
+                        for (int index : subset) {
+                            int target = labels[index] == classA ? 1 : -1;
+                            double activation = perceptron.bias;
+                            double[] sample = features[index];
+                            for (int i = 0; i < FEATURE_SIZE; i++) {
+                                activation += perceptron.weights[i] * sample[i];
+                            }
+                            if (target * activation <= 0) {
+                                updated = true;
+                                for (int i = 0; i < FEATURE_SIZE; i++) {
+                                    perceptron.weights[i] += LEARNING_RATE * target * sample[i];
+                                }
+                                perceptron.bias += LEARNING_RATE * target;
+                            }
+                        }
+
+                        if (!updated) {
+                            break;
+                        }
+                    }
+
+                    pairwiseClassifiers.add(perceptron);
+                }
+            }
+        }
+
+        // method to add 10 dimentions representing distance from centroids to sample
+        private double[] projectToFeatureSpace(List<Integer> sample, double[][] centroids) {
+            double[] features = new double[FEATURE_SIZE];
+            for (int i = 0; i < BITMAP_SIZE; i++) {
+                features[i] = sample.get(i);
+            }
+            for (int digit = 0; digit < CLASSES; digit++) {
+                double sum = 0.0;
+                for (int i = 0; i < BITMAP_SIZE; i++) {
+                    double diff = sample.get(i) - centroids[digit][i];
+                    sum += diff * diff;
+                }
+                features[BITMAP_SIZE + digit] = Math.sqrt(sum);
+            }
+            return features;
+        }
+
+        // classify useing trained linear separator for one vs rest
+        private int classifyOneVsRest(double[] features) {
+            double maxScore = Double.NEGATIVE_INFINITY;
+            int bestClass = 0;
+            for (int c = 0; c < CLASSES; c++) {
+                double score = oneVsRestBias[c];
+                for (int i = 0; i < FEATURE_SIZE; i++) {
+                    score += oneVsRestWeights[c][i] * features[i];
+                }
+                if (score > maxScore) {
+                    maxScore = score;
+                    bestClass = c;
+                }
+            }
+            return bestClass;
+        }
+
+        // classify useing trained linear separators for one vs one
+        private int classifyOneVsOne(double[] features) {
+            int[] votes = new int[CLASSES];
+            for (BinaryPerceptron perceptron : pairwiseClassifiers) {
+                votes[perceptron.predict(features)]++;
+            }
+            int bestClass = 0;
+            int bestVotes = -1;
+            for (int c = 0; c < CLASSES; c++) {
+                if (votes[c] > bestVotes) {
+                    bestVotes = votes[c];
+                    bestClass = c;
+                }
+            }
+            return bestClass;
+        }
+
+        private void updateOneVsRestWeights(double[] features, int targetClass, int predictedClass) {
+            for (int i = 0; i < FEATURE_SIZE; i++) {
+                oneVsRestWeights[targetClass][i] += LEARNING_RATE * features[i];
+                oneVsRestWeights[predictedClass][i] -= LEARNING_RATE * features[i];
+            }
+            oneVsRestBias[targetClass] += LEARNING_RATE;
+            oneVsRestBias[predictedClass] -= LEARNING_RATE;
+        }
+
+        private static class BinaryPerceptron {
+            final int positiveClass;
+            final int negativeClass;
+            final double[] weights;
+            double bias;
+
+            BinaryPerceptron(int positiveClass, int negativeClass, int featureSize) {
+                this.positiveClass = positiveClass;
+                this.negativeClass = negativeClass;
+                this.weights = new double[featureSize];
+            }
+
+            int predict(double[] features) {
+                double activation = bias;
+                for (int i = 0; i < weights.length; i++) {
+                    activation += weights[i] * features[i];
+                }
+                return activation >= 0 ? positiveClass : negativeClass;
+            }
+        }
+
+        private static class PredictionResult {
+            final int oneVsRest;
+            final int oneVsOne;
+
+            PredictionResult(int oneVsRest, int oneVsOne) {
+                this.oneVsRest = oneVsRest;
+                this.oneVsOne = oneVsOne;
+            }
         }
     }
 
     // function to evaluate success rate of inputed algorithm
     private static void evaluateAlgorithm(List<List<Integer>> dataSetA, List<List<Integer>> dataSetB, Algorithm algorithm, String label) {
-         // If the provided algorithm is the MLP, print its configuration before running evaluation
+        if (algorithm instanceof SupportVectorMachine svm) {
+            int correctOneVsRest = 0;
+            int correctOneVsOne = 0;
+            for (List<Integer> sample : dataSetB) {
+                int actualDigit = sample.get(BITMAP_SIZE);
+                SupportVectorMachine.PredictionResult prediction = svm.predictDetailed(sample, dataSetA);
+                if (prediction.oneVsRest == actualDigit) {
+                    correctOneVsRest++;
+                }
+                if (prediction.oneVsOne == actualDigit) {
+                    correctOneVsOne++;
+                }
+            }
+            double size = dataSetB.size();
+            System.out.println("\n--- " + label + " Success Rate ---");
+            System.out.println("1-vs-Rest Correct: " + correctOneVsRest + " / " + dataSetB.size());
+            System.out.println("1-vs-Rest Success Rate: " + (correctOneVsRest / size) * 100.0 + "%");
+            System.out.println("1-vs-1 Correct: " + correctOneVsOne + " / " + dataSetB.size());
+            System.out.println("1-vs-1 Success Rate: " + (correctOneVsOne / size) * 100.0 + "%");
+            return;
+        }
+
         if (algorithm instanceof MultiLayerPerceptron) {
             System.out.println("\n--- " + label + " parameters used in calculation ---");
             System.out.println(((MultiLayerPerceptron) algorithm).getParameters());
         }
-        
-        // counting correct predictions train on A, test on B
+
         int correctMatches = 0;
         for (int s = 0; s < dataSetB.size(); s++) {
             List<Integer> sample = dataSetB.get(s);
