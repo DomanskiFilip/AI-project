@@ -44,7 +44,7 @@ public class CWmain {
                 double sum = 0;
                 for (int i = 0; i < BITMAP_SIZE; i++) {
                     double distance = sample.get(i) - candidate.get(i);
-                    sum += distance * distance;
+                    sum += distance * distance; // squared distance gives better results than square root of distance
                 }
                 if (sum < minDistance) {
                     minDistance = sum;
@@ -642,7 +642,7 @@ public class CWmain {
                 double distance = 0;
                 for (int i = 0; i < BITMAP_SIZE; i++) {
                     double diff = sample.get(i) - candidate.get(i);
-                    distance += diff * diff;
+                    distance += diff * diff; // squared distance gives better results than square root of distance
                 }
                 // fill the heap with closest K neighbours
                 if (heap.size() < K) {
