@@ -296,18 +296,18 @@ public class CWmain {
         private static final int CLASSES = 10;
         private static final int EXTRA_FEATURES = CLASSES;
         private static final int FEATURE_SIZE = BITMAP_SIZE + EXTRA_FEATURES;
-        private static final int MAX_EPOCHS = 500;
+        private static final int MAX_EPOCHS = 10; // after 10 it dips a little and then flatlines
         private static final double LEARNING_RATE = 0.02;
-        private static final double MARGIN = 0.002; // minimum score gap before we accept a prediction
+        private static final double MARGIN = 0.002; // minimum score gap before we accept a prediction 10 times less than learning rate seems to work best
         private static final long RANDOM_SEED = 42;
 
 
         private double[][] centroidCache;
         private double[] featureMeans = new double[FEATURE_SIZE]; // per-feature mean for normalization
-        private double[] featureStdDevs = new double[FEATURE_SIZE]; // per-feature standard deviation for normalization (the square root of variance describing how far feature values typically spread from their mean.)
+        private double[] featureStdDevs = new double[FEATURE_SIZE]; // per-feature standard deviation for normalization (the square root of variance describing how far feature values spread from their mean.)
         private double[][] oneVsRestWeights = new double[CLASSES][FEATURE_SIZE];
         private double[] oneVsRestBias = new double[CLASSES];
-        private List<BinaryPerceptron> pairwiseClassifiers = new ArrayList<>();
+        private List<LinearPerceptron> pairwiseClassifiers = new ArrayList<>();
         private boolean trained = false;
 
         @Override
@@ -326,21 +326,21 @@ public class CWmain {
             centroidCache = calculateCentroids(trainingSet);
 
             double[][] featureMatrix = new double[trainingSet.size()][FEATURE_SIZE];
-            int[] labels = new int[trainingSet.size()];
+            int[] classes_array = new int[trainingSet.size()];
             for (int i = 0; i < trainingSet.size(); i++) {
                 List<Integer> row = trainingSet.get(i);
                 featureMatrix[i] = projectToFeatureSpace(row, centroidCache);
-                labels[i] = row.get(BITMAP_SIZE);
+                classes_array[i] = row.get(BITMAP_SIZE);
             }
 
-            computeNormalizationStats(featureMatrix);  // collect mean/std for every feature
-            applyNormalization(featureMatrix);         // normalize the entire training matrix
+            computeNormalizationStats(featureMatrix); // collect mean/standard deviation for every feature
+            applyNormalization(featureMatrix); // normalize the entire training dataset
 
-            trainOneVsRest(featureMatrix, labels);
-            trainOneVsOne(featureMatrix, labels);
+            trainOneVsRest(featureMatrix, classes_array);
+            trainOneVsOne(featureMatrix, classes_array);
         }
 
-        private void trainOneVsRest(double[][] features, int[] labels) {
+        private void trainOneVsRest(double[][] features, int[] classes_array) {
             oneVsRestWeights = new double[CLASSES][FEATURE_SIZE];
             oneVsRestBias = new double[CLASSES];
 
@@ -348,19 +348,21 @@ public class CWmain {
             double[] biasSums = new double[CLASSES];
             long steps = 0;
 
+            // array of indexes to shuffle
             List<Integer> indices = new ArrayList<>();
-            for (int i = 0; i < labels.length; i++) {
+            for (int i = 0; i < features.length; i++) {
                 indices.add(i);
             }
-            Random rng = new Random(RANDOM_SEED);
+            Random random = new Random(RANDOM_SEED);
 
             for (int epoch = 0; epoch < MAX_EPOCHS; epoch++) {
-                Collections.shuffle(indices, rng);
+                Collections.shuffle(indices, random);
 
                 int mistakes = 0;
+                // training loop: picks shafled indexes and trains weights on them
                 for (int idx : indices) {
                     double[] sample = features[idx];
-                    int target = labels[idx];
+                    int target = classes_array[idx];
 
                     double[] scores = new double[CLASSES];
                     int predicted = classifyOneVsRest(sample, scores);
@@ -398,6 +400,7 @@ public class CWmain {
                 }
             }
 
+            // average weights over all steps
             steps = Math.max(steps, 1);
             for (int c = 0; c < CLASSES; c++) {
                 for (int f = 0; f < FEATURE_SIZE; f++) {
@@ -407,18 +410,19 @@ public class CWmain {
             }
         }
 
-        private void trainOneVsOne(double[][] features, int[] labels) {
+        private void trainOneVsOne(double[][] features, int[] classes_array) {
             pairwiseClassifiers = new ArrayList<>();
 
             for (int classA = 0; classA < CLASSES; classA++) {
                 for (int classB = classA + 1; classB < CLASSES; classB++) {
-                    List<Integer> classAIndices = new ArrayList<>();
-                    List<Integer> classBIndices = new ArrayList<>();
+                    List<Integer> classAIndices = new ArrayList<>(); // ammount of samples for class A
+                    List<Integer> classBIndices = new ArrayList<>(); // ammount of samples for class B
 
-                    for (int i = 0; i < labels.length; i++) {
-                        if (labels[i] == classA) {
+                    // count samples for both classes
+                    for (int i = 0; i < features.length; i++) {
+                        if (classes_array[i] == classA) {
                             classAIndices.add(i);
-                        } else if (labels[i] == classB) {
+                        } else if (classes_array[i] == classB) {
                             classBIndices.add(i);
                         }
                     }
@@ -427,22 +431,24 @@ public class CWmain {
                         continue;
                     }
 
-                    BinaryPerceptron perceptron = new BinaryPerceptron(classA, classB, FEATURE_SIZE);
-                    Random rng = new Random(RANDOM_SEED + classA * CLASSES + classB);
+                    LinearPerceptron perceptron = new LinearPerceptron(classA, classB, FEATURE_SIZE);
+                    Random random = new Random(RANDOM_SEED + classA * CLASSES + classB);
 
+                    // training loop for one-vs-one perceptron
                     for (int epoch = 0; epoch < MAX_EPOCHS; epoch++) {
-                        Collections.shuffle(classAIndices, rng);
-                        Collections.shuffle(classBIndices, rng);
+                        // shufeling eliminates bias (funnly in testing these 2 lines of shufeling made about 1% positive difference in success rate)
+                        Collections.shuffle(classAIndices, random);
+                        Collections.shuffle(classBIndices, random);
 
                         boolean updated = false;
                         int maxSize = Math.max(classAIndices.size(), classBIndices.size());
 
                         for (int offset = 0; offset < maxSize; offset++) {
                             if (offset < classAIndices.size()) {
-                                updated |= perceptron.trainOnSample(features[classAIndices.get(offset)], 1);
+                                updated |= perceptron.perceptronLearning(features[classAIndices.get(offset)], 1); // |= is logical OR assignment operator
                             }
                             if (offset < classBIndices.size()) {
-                                updated |= perceptron.trainOnSample(features[classBIndices.get(offset)], -1);
+                                updated |= perceptron.perceptronLearning(features[classBIndices.get(offset)], -1);
                             }
                         }
 
@@ -458,6 +464,7 @@ public class CWmain {
             }
         }
 
+        // method projecting original bitmap into feature space adding distances from centroids
         private double[] projectToFeatureSpace(List<Integer> sample, double[][] centroids) {
             double[] features = new double[FEATURE_SIZE];
 
@@ -477,6 +484,7 @@ public class CWmain {
             return features;
         }
 
+        // method updating weights for one-vs-rest classifiers
         private void updateOneVsRestWeights(double[] features, int targetClass, int rivalClass) {
             for (int i = 0; i < FEATURE_SIZE; i++) {
                 oneVsRestWeights[targetClass][i] += LEARNING_RATE * features[i];
@@ -486,6 +494,7 @@ public class CWmain {
             oneVsRestBias[rivalClass] -= LEARNING_RATE;
         }
 
+        // method classifying sample using one-vs-rest strategy
         private int classifyOneVsRest(double[] features, double[] scoreBuffer) {
             double maxScore = Double.NEGATIVE_INFINITY;
             int bestClass = 0;
@@ -507,9 +516,10 @@ public class CWmain {
             return bestClass;
         }
 
+        // method classifying sample using one-vs-one strategy
         private int classifyOneVsOne(double[] features) {
             int[] votes = new int[CLASSES];
-            for (BinaryPerceptron perceptron : pairwiseClassifiers) {
+            for (LinearPerceptron perceptron : pairwiseClassifiers) {
                 votes[perceptron.predict(features)]++;
             }
             int bestClass = 0;
@@ -523,6 +533,8 @@ public class CWmain {
             return bestClass;
         }
 
+        // normalization methods squashing data into 0-1 range for each feature minimasing larger distances impacting results \/
+        // method computeing mean and standard deviation for each feature across the dataset
         private void computeNormalizationStats(double[][] features) {
             for (int f = 0; f < FEATURE_SIZE; f++) {
                 double sum = 0;
@@ -538,6 +550,7 @@ public class CWmain {
             }
         }
 
+        // method applying normalization to the training dataset
         private void applyNormalization(double[][] features) {
             for (double[] vector : features) {
                 for (int f = 0; f < FEATURE_SIZE; f++) {
@@ -546,6 +559,7 @@ public class CWmain {
             }
         }
 
+        // method normalizing a single bitmap (used for samle from test set during prediction)
         private double[] normalizeFeatureVector(double[] features) {
             double[] normalized = new double[FEATURE_SIZE];
             for (int f = 0; f < FEATURE_SIZE; f++) {
@@ -554,7 +568,8 @@ public class CWmain {
             return normalized;
         }
 
-        private static class BinaryPerceptron {
+        // inner class representing a linear perceptron for one-vs-one classification
+        private static class LinearPerceptron {
             final int positiveClass;
             final int negativeClass;
             final double[] weights;
@@ -564,14 +579,15 @@ public class CWmain {
             private double biasSum;
             private long steps;
 
-            BinaryPerceptron(int positiveClass, int negativeClass, int featureSize) {
+            LinearPerceptron(int positiveClass, int negativeClass, int featureSize) {
                 this.positiveClass = positiveClass;
                 this.negativeClass = negativeClass;
                 this.weights = new double[featureSize];
                 this.weightSum = new double[featureSize];
             }
 
-            boolean trainOnSample(double[] features, int target) {
+            // perceptron learning rule: if misclassified, update weights and bias
+            boolean perceptronLearning(double[] features, int target) {
                 double activation = bias;
                 for (int i = 0; i < weights.length; i++) {
                     activation += weights[i] * features[i];
@@ -621,12 +637,14 @@ public class CWmain {
          @Override
         public Object predict(List<Integer> sample, List<List<Integer>> trainingSet) {
             PriorityQueue<double[]> heap = new PriorityQueue<>((a, b) -> Double.compare(b[0], a[0]));
+            // calculate euclidean distance from the sample to all training set candidates
             for (List<Integer> candidate : trainingSet) {
                 double distance = 0;
                 for (int i = 0; i < BITMAP_SIZE; i++) {
                     double diff = sample.get(i) - candidate.get(i);
                     distance += diff * diff;
                 }
+                // fill the heap with closest K neighbours
                 if (heap.size() < K) {
                     heap.offer(new double[] {distance, candidate.get(BITMAP_SIZE)});
                 } else if (distance < heap.peek()[0]) {
@@ -634,6 +652,7 @@ public class CWmain {
                     heap.offer(new double[] {distance, candidate.get(BITMAP_SIZE)});
                 }
             }
+            // find the most common class among the K neighbours
             int[] votes = new int[10];
             while (!heap.isEmpty()) {
                 int digit = (int) heap.poll()[1];
