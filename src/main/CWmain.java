@@ -26,6 +26,8 @@ public class CWmain {
     private static final Algorithm DISTANCE_FROM_CENTROID = new DistanceFromCentroid();
     private static final Algorithm SUPPORT_VECTOR_MACHINE = new SupportVectorMachine();
     private static final Algorithm K_NEAREST_NEIGHBOUR = new K_NEAREST_NEIGHBOUR();
+    
+    private static final Algorithm MAHALANOBIS_DISTANCE = new MahalanobisDistance();
 
     // Euclidean Distance Algorythm
     private static class EuclideanDistance implements Algorithm {
@@ -670,6 +672,187 @@ public class CWmain {
         }
     }
 
+    // Mahalanobis Distance Algorithm
+    private static class MahalanobisDistance implements Algorithm {
+        private static final int CLASSES = 10;
+
+        @Override
+        public Object predict(List<Integer> sample, List<List<Integer>> trainingSet) {
+            // Get the number of features in the sample
+            int featureCount = getFeatureCount(sample);
+            if (featureCount <= 0) {
+                return Integer.valueOf(-1); // Return -1 if the feature count is invalid
+            }
+
+            // Calculate centroids for each class
+            double[][] centroids = calculateCentroids(trainingSet);
+
+            // Count the number of samples per class
+            int[] classCounts = new int[CLASSES];
+            for (List<Integer> row : trainingSet) {
+                int label = getLabel(row);
+                if (label >= 0 && label < CLASSES) {
+                    classCounts[label]++;
+                }
+            }
+
+            // Compute the feature means and covariance matrix
+            double[] featureMeans = computeFeatureMeans(trainingSet, featureCount);
+            double[][] covariance = computeCovarianceMatrix(trainingSet, featureCount, featureMeans);
+            double[][] inverseCovariance = invertMatrix(covariance);
+            if (inverseCovariance == null) {
+                return Integer.valueOf(-1); // Return -1 if the covariance matrix is not invertible
+            }
+
+            // Convert the sample into a vector
+            double[] sampleVector = new double[featureCount];
+            for (int i = 0; i < featureCount; i++) {
+                sampleVector[i] = sample.get(i);
+            }
+
+            // Calculate the Mahalanobis distance to each class centroid
+            double bestDistance = Double.MAX_VALUE;
+            int bestClass = -1;
+            for (int digit = 0; digit < CLASSES; digit++) {
+                if (classCounts[digit] == 0 || centroids[digit].length == 0) {
+                    continue; // Skip classes with no samples
+                }
+                double[] diff = new double[featureCount];
+                for (int i = 0; i < featureCount && i < centroids[digit].length; i++) {
+                    diff[i] = sampleVector[i] - centroids[digit][i];
+                }
+                double distance = computeMahalanobisDistance(diff, inverseCovariance);
+                if (distance < bestDistance) {
+                    bestDistance = distance;
+                    bestClass = digit;
+                }
+            }
+
+            // Return the predicted class or 0 if no valid class was found
+            return Integer.valueOf(bestClass >= 0 ? bestClass : 0);
+        }
+
+        // Helper method to get the number of features in a sample
+        private int getFeatureCount(List<Integer> sample) {
+            return sample != null ? sample.size() : 0;
+        }
+
+        // Helper method to get the label (class) of a sample
+        private int getLabel(List<Integer> row) {
+            return row != null && row.size() > BITMAP_SIZE ? row.get(BITMAP_SIZE) : -1;
+        }
+    }
+
+    private static double[] computeFeatureMeans(List<List<Integer>> trainingSet, int featureCount) {
+        double[] means = new double[featureCount];
+        if (trainingSet == null || trainingSet.isEmpty()) {
+            return means;
+        }
+        for (List<Integer> row : trainingSet) {
+            for (int i = 0; i < featureCount; i++) {
+                means[i] += row.get(i);
+            }
+        }
+        int n = trainingSet.size();
+        for (int i = 0; i < featureCount; i++) {
+            means[i] /= n;
+        }
+        return means;
+    }
+
+    private static double[][] computeCovarianceMatrix(List<List<Integer>> trainingSet, int featureCount, double[] means) {
+        double[][] covariance = new double[featureCount][featureCount];
+        if (trainingSet == null || trainingSet.size() <= 1) {
+            for (int i = 0; i < featureCount; i++) {
+                covariance[i][i] = 1.0;
+            }
+            return covariance;
+        }
+        for (List<Integer> row : trainingSet) {
+            for (int i = 0; i < featureCount; i++) {
+                double diffI = row.get(i) - means[i];
+                for (int j = 0; j < featureCount; j++) {
+                    double diffJ = row.get(j) - means[j];
+                    covariance[i][j] += diffI * diffJ;
+                }
+            }
+        }
+        double denom = trainingSet.size() - 1.0;
+        for (int i = 0; i < featureCount; i++) {
+            for (int j = 0; j < featureCount; j++) {
+                covariance[i][j] /= denom;
+            }
+            covariance[i][i] += 1e-6; // regularization
+        }
+        return covariance;
+    }
+
+    private static double[][] invertMatrix(double[][] matrix) {
+        int n = matrix.length;
+        double[][] augmented = new double[n][2 * n];
+        for (int i = 0; i < n; i++) {
+            System.arraycopy(matrix[i], 0, augmented[i], 0, n);
+            augmented[i][i + n] = 1.0;
+        }
+
+        for (int col = 0; col < n; col++) {
+            int pivot = col;
+            double max = Math.abs(augmented[pivot][col]);
+            for (int row = col + 1; row < n; row++) {
+                double value = Math.abs(augmented[row][col]);
+                if (value > max) {
+                    max = value;
+                    pivot = row;
+                }
+            }
+            if (Math.abs(augmented[pivot][col]) < 1e-9) {
+                return null;
+            }
+            if (pivot != col) {
+                double[] tmp = augmented[pivot];
+                augmented[pivot] = augmented[col];
+                augmented[col] = tmp;
+            }
+
+            double pivotVal = augmented[col][col];
+            for (int j = 0; j < 2 * n; j++) {
+                augmented[col][j] /= pivotVal;
+            }
+
+            for (int row = 0; row < n; row++) {
+                if (row == col) {
+                    continue;
+                }
+            double factor = augmented[row][col];
+                for (int j = 0; j < 2 * n; j++) {
+                    augmented[row][j] -= factor * augmented[col][j];
+                }
+            }
+        }
+
+        double[][] inverse = new double[n][n];
+        for (int i = 0; i < n; i++) {
+            System.arraycopy(augmented[i], n, inverse[i], 0, n);
+        }
+        return inverse;
+    }
+
+    private static double computeMahalanobisDistance(double[] diff, double[][] inverseCovariance) {
+        double[] intermediate = new double[diff.length];
+        for (int i = 0; i < diff.length; i++) {
+            double sum = 0;
+            for (int j = 0; j < diff.length; j++) {
+                sum += inverseCovariance[i][j] * diff[j];
+            }
+            intermediate[i] = sum;
+        }
+        double distance = 0;
+        for (int i = 0; i < diff.length; i++) {
+            distance += diff[i] * intermediate[i];
+        }
+        return Math.sqrt(Math.max(distance, 0));
+    }
+
     // function to evaluate success rate of inputed algorithm
     private static void evaluateAlgorithm(List<List<Integer>> dataSetA, List<List<Integer>> dataSetB, Algorithm algorithm, String label) {
         if (algorithm instanceof SupportVectorMachine svm) {
@@ -886,8 +1069,9 @@ public class CWmain {
             System.out.println("4 -> Distance From Centroid");
             System.out.println("5 -> Support Vector Machine");
             System.out.println("6 -> K Nearest Neighbour");
+            System.out.println("7 -> Mahalanobis Distance");
             System.out.println("0 -> Exit");
-            System.out.print("\nEnter your choice (0-4): ");
+            System.out.print("\nEnter your choice (0-7): ");
             
             try {
                 int choice = scanner.nextInt();
@@ -914,6 +1098,10 @@ public class CWmain {
 
                     case 6:
                         evaluateAlgorithm(dataSetA, dataSetB, K_NEAREST_NEIGHBOUR, "K Nearest Neighbour"); // train on A, test on B
+                        break;
+
+                    case 7:
+                        evaluateAlgorithm(dataSetA, dataSetB, MAHALANOBIS_DISTANCE, "Mahalanobis Distance"); // train on A, test on B
                         break;
 
                     case 0:
