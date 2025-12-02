@@ -26,8 +26,10 @@ public class CWmain {
     private static final Algorithm DISTANCE_FROM_CENTROID = new DistanceFromCentroid();
     private static final Algorithm SUPPORT_VECTOR_MACHINE = new SupportVectorMachine();
     private static final Algorithm K_NEAREST_NEIGHBOUR = new K_NEAREST_NEIGHBOUR();
-    
+    private static final Algorithm K_MEANS = new KMeans();
     private static final Algorithm MAHALANOBIS_DISTANCE = new MahalanobisDistance();
+    private static final Algorithm GENETIC_ALGORYTHM = new GeneticAlgorythm();
+    private static final Algorithm ALL_AT_ONCE = new AllAtOnce();
 
     // Euclidean Distance Algorythm
     private static class EuclideanDistance implements Algorithm {
@@ -290,7 +292,6 @@ public class CWmain {
 
             return Integer.valueOf(closestClass);
         }
-
     }
 
     // Support Vector Machine Algorythm
@@ -632,6 +633,7 @@ public class CWmain {
         }
     }
 
+    // K-Nearest Neighbour Algorythm
     private static class K_NEAREST_NEIGHBOUR implements Algorithm {
 
         private static final int K = 3;
@@ -669,6 +671,118 @@ public class CWmain {
                 }
             }
             return Integer.valueOf(bestDigit);
+        }
+    }
+
+    // K-Means Algorythm
+    private static class KMeans implements Algorithm {
+
+        private static final int CLUSTERS = 10; // Number of clusters (digits 0-9)
+        private static final int MAX_ITERATIONS = 1; // Maximum number of iterations for convergence
+
+        @Override
+        public Object predict(List<Integer> sample, List<List<Integer>> trainingSet) {
+            // Initialize centroids randomly from the training set
+            double[][] centroids = initializeCentroids(trainingSet);
+
+            // Perform the K-Means clustering algorithm
+            for (int iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
+                // Assign each sample to the nearest centroid
+                int[] assignments = assignSamplesToCentroids(trainingSet, centroids);
+
+                // Recalculate centroids based on the assignments
+                double[][] newCentroids = recalculateCentroids(trainingSet, assignments);
+
+                // Check for convergence (if centroids do not change)
+                if (hasConverged(centroids, newCentroids)) {
+                    break;
+                }
+
+                centroids = newCentroids;
+            }
+
+            // Predict the cluster for the given sample
+            return Integer.valueOf(predictCluster(sample, centroids));
+        }
+
+        // Initialize centroids randomly from the training set
+        private double[][] initializeCentroids(List<List<Integer>> trainingSet) {
+            Random random = new Random();
+            double[][] centroids = new double[CLUSTERS][BITMAP_SIZE];
+            for (int i = 0; i < CLUSTERS; i++) {
+                List<Integer> randomSample = trainingSet.get(random.nextInt(trainingSet.size()));
+                for (int j = 0; j < BITMAP_SIZE; j++) {
+                    centroids[i][j] = randomSample.get(j);
+                }
+            }
+            return centroids;
+        }
+
+        // Assign each sample to the nearest centroid
+        private int[] assignSamplesToCentroids(List<List<Integer>> trainingSet, double[][] centroids) {
+            int[] assignments = new int[trainingSet.size()];
+            for (int i = 0; i < trainingSet.size(); i++) {
+                List<Integer> sample = trainingSet.get(i);
+                assignments[i] = predictCluster(sample, centroids);
+            }
+            return assignments;
+        }
+
+        // Recalculate centroids based on the current assignments
+        private double[][] recalculateCentroids(List<List<Integer>> trainingSet, int[] assignments) {
+            double[][] centroids = new double[CLUSTERS][BITMAP_SIZE];
+            int[] counts = new int[CLUSTERS];
+
+            for (int i = 0; i < trainingSet.size(); i++) {
+                int cluster = assignments[i];
+                counts[cluster]++;
+                List<Integer> sample = trainingSet.get(i);
+                for (int j = 0; j < BITMAP_SIZE; j++) {
+                    centroids[cluster][j] += sample.get(j);
+                }
+            }
+
+            for (int cluster = 0; cluster < CLUSTERS; cluster++) {
+                if (counts[cluster] > 0) {
+                    for (int j = 0; j < BITMAP_SIZE; j++) {
+                        centroids[cluster][j] /= counts[cluster];
+                    }
+                }
+            }
+
+            return centroids;
+        }
+
+        // Check if centroids have converged
+        private boolean hasConverged(double[][] oldCentroids, double[][] newCentroids) {
+            for (int i = 0; i < CLUSTERS; i++) {
+                for (int j = 0; j < BITMAP_SIZE; j++) {
+                    if (Math.abs(oldCentroids[i][j] - newCentroids[i][j]) > 1e-6) {
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }
+
+        // Predict the cluster for a given sample
+        private int predictCluster(List<Integer> sample, double[][] centroids) {
+            double minDistance = Double.MAX_VALUE;
+            int bestCluster = -1;
+
+            for (int cluster = 0; cluster < CLUSTERS; cluster++) {
+                double distance = 0;
+                for (int j = 0; j < BITMAP_SIZE; j++) {
+                    double diff = sample.get(j) - centroids[cluster][j];
+                    distance += diff * diff;
+                }
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    bestCluster = cluster;
+                }
+            }
+
+            return bestCluster;
         }
     }
 
@@ -741,120 +855,310 @@ public class CWmain {
         private int getLabel(List<Integer> row) {
             return row != null && row.size() > BITMAP_SIZE ? row.get(BITMAP_SIZE) : -1;
         }
-    }
+    // } could end here but I moved it down for code organisation the helper functions are used in this class only anyway
 
-    private static double[] computeFeatureMeans(List<List<Integer>> trainingSet, int featureCount) {
-        double[] means = new double[featureCount];
-        if (trainingSet == null || trainingSet.isEmpty()) {
+        // Method to compute the mean of each feature across the training set
+        private static double[] computeFeatureMeans(List<List<Integer>> trainingSet, int featureCount) {
+            double[] means = new double[featureCount];
+            if (trainingSet == null || trainingSet.isEmpty()) {
+                return means;
+            }
+            for (List<Integer> row : trainingSet) {
+                for (int i = 0; i < featureCount; i++) {
+                    means[i] += row.get(i);
+                }
+            }
+            int n = trainingSet.size();
+            for (int i = 0; i < featureCount; i++) {
+                means[i] /= n;
+            }
             return means;
         }
-        for (List<Integer> row : trainingSet) {
-            for (int i = 0; i < featureCount; i++) {
-                means[i] += row.get(i);
-            }
-        }
-        int n = trainingSet.size();
-        for (int i = 0; i < featureCount; i++) {
-            means[i] /= n;
-        }
-        return means;
-    }
 
-    private static double[][] computeCovarianceMatrix(List<List<Integer>> trainingSet, int featureCount, double[] means) {
-        double[][] covariance = new double[featureCount][featureCount];
-        if (trainingSet == null || trainingSet.size() <= 1) {
+        // Method to compute the covariance matrix of the features in the training set
+        private static double[][] computeCovarianceMatrix(List<List<Integer>> trainingSet, int featureCount, double[] means) {
+            double[][] covariance = new double[featureCount][featureCount];
+            if (trainingSet == null || trainingSet.size() <= 1) {
+                for (int i = 0; i < featureCount; i++) {
+                    covariance[i][i] = 1.0;
+                }
+                return covariance;
+            }
+            for (List<Integer> row : trainingSet) {
+                for (int i = 0; i < featureCount; i++) {
+                    double diffI = row.get(i) - means[i];
+                    for (int j = 0; j < featureCount; j++) {
+                        double diffJ = row.get(j) - means[j];
+                        covariance[i][j] += diffI * diffJ;
+                    }
+                }
+            }
+            double denom = trainingSet.size() - 1.0;
             for (int i = 0; i < featureCount; i++) {
-                covariance[i][i] = 1.0;
+                for (int j = 0; j < featureCount; j++) {
+                    covariance[i][j] /= denom;
+                }
+                covariance[i][i] += 1e-6; // regularization
             }
             return covariance;
         }
-        for (List<Integer> row : trainingSet) {
-            for (int i = 0; i < featureCount; i++) {
-                double diffI = row.get(i) - means[i];
-                for (int j = 0; j < featureCount; j++) {
-                    double diffJ = row.get(j) - means[j];
-                    covariance[i][j] += diffI * diffJ;
+
+        // Method to invert a matrix using Gaussian elimination
+        private static double[][] invertMatrix(double[][] matrix) {
+            int n = matrix.length;
+            double[][] augmented = new double[n][2 * n];
+            for (int i = 0; i < n; i++) {
+                System.arraycopy(matrix[i], 0, augmented[i], 0, n);
+                augmented[i][i + n] = 1.0;
+            }
+
+            for (int col = 0; col < n; col++) {
+                int pivot = col;
+                double max = Math.abs(augmented[pivot][col]);
+                for (int row = col + 1; row < n; row++) {
+                    double value = Math.abs(augmented[row][col]);
+                    if (value > max) {
+                        max = value;
+                        pivot = row;
+                    }
                 }
-            }
-        }
-        double denom = trainingSet.size() - 1.0;
-        for (int i = 0; i < featureCount; i++) {
-            for (int j = 0; j < featureCount; j++) {
-                covariance[i][j] /= denom;
-            }
-            covariance[i][i] += 1e-6; // regularization
-        }
-        return covariance;
-    }
-
-    private static double[][] invertMatrix(double[][] matrix) {
-        int n = matrix.length;
-        double[][] augmented = new double[n][2 * n];
-        for (int i = 0; i < n; i++) {
-            System.arraycopy(matrix[i], 0, augmented[i], 0, n);
-            augmented[i][i + n] = 1.0;
-        }
-
-        for (int col = 0; col < n; col++) {
-            int pivot = col;
-            double max = Math.abs(augmented[pivot][col]);
-            for (int row = col + 1; row < n; row++) {
-                double value = Math.abs(augmented[row][col]);
-                if (value > max) {
-                    max = value;
-                    pivot = row;
+                if (Math.abs(augmented[pivot][col]) < 1e-9) {
+                    return null;
                 }
-            }
-            if (Math.abs(augmented[pivot][col]) < 1e-9) {
-                return null;
-            }
-            if (pivot != col) {
-                double[] tmp = augmented[pivot];
-                augmented[pivot] = augmented[col];
-                augmented[col] = tmp;
-            }
-
-            double pivotVal = augmented[col][col];
-            for (int j = 0; j < 2 * n; j++) {
-                augmented[col][j] /= pivotVal;
-            }
-
-            for (int row = 0; row < n; row++) {
-                if (row == col) {
-                    continue;
+                if (pivot != col) {
+                    double[] tmp = augmented[pivot];
+                    augmented[pivot] = augmented[col];
+                    augmented[col] = tmp;
                 }
-            double factor = augmented[row][col];
+
+                double pivotVal = augmented[col][col];
                 for (int j = 0; j < 2 * n; j++) {
-                    augmented[row][j] -= factor * augmented[col][j];
+                    augmented[col][j] /= pivotVal;
+                }
+
+                for (int row = 0; row < n; row++) {
+                    if (row == col) {
+                        continue;
+                    }
+                double factor = augmented[row][col];
+                    for (int j = 0; j < 2 * n; j++) {
+                        augmented[row][j] -= factor * augmented[col][j];
+                    }
+                }
+            }
+
+            double[][] inverse = new double[n][n];
+            for (int i = 0; i < n; i++) {
+                System.arraycopy(augmented[i], n, inverse[i], 0, n);
+            }
+            return inverse;
+        }
+
+        // Method to compute the Mahalanobis distance given the difference vector and inverse covariance matrix
+        private static double computeMahalanobisDistance(double[] diff, double[][] inverseCovariance) {
+            double[] intermediate = new double[diff.length];
+            for (int i = 0; i < diff.length; i++) {
+                double sum = 0;
+                for (int j = 0; j < diff.length; j++) {
+                    sum += inverseCovariance[i][j] * diff[j];
+                }
+                intermediate[i] = sum;
+            }
+            double distance = 0;
+            for (int i = 0; i < diff.length; i++) {
+                distance += diff[i] * intermediate[i];
+            }
+            return Math.sqrt(Math.max(distance, 0));
+        }
+    }
+
+    // Genetic Algorythm
+    private static class GeneticAlgorythm implements Algorithm {
+
+        private static final int POPULATION_SIZE = 50; // Number of individuals in the population
+        private static final int GENERATIONS = 10; // Number of generations to evolve
+        private static final double MUTATION_RATE = 0.1; // Probability of mutation
+        private static final int CLASSES = 10; // Number of classes (digits 0-9)
+
+        @Override
+        public Object predict(List<Integer> sample, List<List<Integer>> trainingSet) {
+            // Initialize the population randomly
+            List<double[]> population = initializePopulation();
+
+            // Evolve the population over generations
+            for (int generation = 0; generation < GENERATIONS; generation++) {
+                // Evaluate the fitness of each individual
+                double[] fitness = evaluateFitness(population, trainingSet);
+
+                // Select parents and create the next generation
+                List<double[]> nextGeneration = new ArrayList<>();
+                for (int i = 0; i < POPULATION_SIZE; i++) {
+                    double[] parent1 = selectParent(population, fitness);
+                    double[] parent2 = selectParent(population, fitness);
+                    double[] child = crossover(parent1, parent2);
+                    mutate(child);
+                    nextGeneration.add(child);
+                }
+
+                population = nextGeneration;
+            }
+
+            // Predict the class for the given sample using the best individual
+            double[] bestIndividual = population.get(0);
+            return Integer.valueOf(predictClass(sample, bestIndividual));
+        }
+
+        // Initialize the population randomly
+        private List<double[]> initializePopulation() {
+            Random random = new Random();
+            List<double[]> population = new ArrayList<>();
+            for (int i = 0; i < POPULATION_SIZE; i++) {
+                double[] individual = new double[BITMAP_SIZE];
+                for (int j = 0; j < BITMAP_SIZE; j++) {
+                    individual[j] = random.nextDouble();
+                }
+                population.add(individual);
+            }
+            return population;
+        }
+
+        // Evaluate the fitness of each individual
+        private double[] evaluateFitness(List<double[]> population, List<List<Integer>> trainingSet) {
+            double[] fitness = new double[population.size()];
+            for (int i = 0; i < population.size(); i++) {
+                double[] individual = population.get(i);
+                int correct = 0;
+                for (List<Integer> sample : trainingSet) {
+                    int actualClass = sample.get(BITMAP_SIZE);
+                    int predictedClass = predictClass(sample, individual);
+                    if (actualClass == predictedClass) {
+                        correct++;
+                    }
+                }
+                fitness[i] = correct / (double) trainingSet.size();
+            }
+            return fitness;
+        }
+
+        // Select a parent using roulette wheel selection
+        private double[] selectParent(List<double[]> population, double[] fitness) {
+            double totalFitness = 0;
+            for (double f : fitness) {
+                totalFitness += f;
+            }
+
+            double randomValue = Math.random() * totalFitness;
+            double cumulativeFitness = 0;
+            for (int i = 0; i < population.size(); i++) {
+                cumulativeFitness += fitness[i];
+                if (cumulativeFitness >= randomValue) {
+                    return population.get(i);
+                }
+            }
+
+            return population.get(population.size() - 1);
+        }
+
+        // Perform crossover between two parents
+        private double[] crossover(double[] parent1, double[] parent2) {
+            double[] child = new double[BITMAP_SIZE];
+            for (int i = 0; i < BITMAP_SIZE; i++) {
+                child[i] = Math.random() < 0.5 ? parent1[i] : parent2[i];
+            }
+            return child;
+        }
+
+        // Mutate an individual
+        private void mutate(double[] individual) {
+            Random random = new Random();
+            for (int i = 0; i < BITMAP_SIZE; i++) {
+                if (random.nextDouble() < MUTATION_RATE) {
+                    individual[i] += random.nextGaussian() * 0.1; // Add small random noise
                 }
             }
         }
 
-        double[][] inverse = new double[n][n];
-        for (int i = 0; i < n; i++) {
-            System.arraycopy(augmented[i], n, inverse[i], 0, n);
+        // Predict the class for a given sample using an individual
+        private int predictClass(List<Integer> sample, double[] individual) {
+            double score = 0;
+            for (int i = 0; i < BITMAP_SIZE; i++) {
+                score += sample.get(i) * individual[i];
+            }
+            return (int) Math.round(score) % CLASSES;
         }
-        return inverse;
     }
 
-    private static double computeMahalanobisDistance(double[] diff, double[][] inverseCovariance) {
-        double[] intermediate = new double[diff.length];
-        for (int i = 0; i < diff.length; i++) {
-            double sum = 0;
-            for (int j = 0; j < diff.length; j++) {
-                sum += inverseCovariance[i][j] * diff[j];
+    // All Algorythms at above at once  
+    private static class AllAtOnce implements Algorithm {
+
+        @Override
+        public Object predict(List<Integer> sample, List<List<Integer>> trainingSet) {
+            // List of all algorithms to run
+            Algorithm[] algorithms = {
+                EUCLIDEAN_DISTANCE,
+                MULTI_LAYER_PERCEPTRON,
+                DISTANCE_FROM_CENTROID,
+                SUPPORT_VECTOR_MACHINE,
+                K_NEAREST_NEIGHBOUR,
+                MAHALANOBIS_DISTANCE
+            };
+
+            // Array to store votes for each class (0-9)
+            int[] votes = new int[10];
+
+            // Run each algorithm and collect its predictions
+            for (Algorithm algorithm : algorithms) {
+                    Object result = algorithm.predict(sample, trainingSet);
+
+                    // Handle algorithms that return int[] (e.g., SupportVectorMachine)
+                    if (result instanceof int[]) {
+                        int[] predictions = (int[]) result;
+                        for (int predictedClass : predictions) {
+                            if (predictedClass >= 0 && predictedClass < votes.length) {
+                                // to see what each algorythm voted for uncomment bellow. 
+                                // (expected behavour would be waiting long time for mlp and svm to train and then it floods the console with all (2810*num of algorythms used) votes :D)
+                                // in my tests the algorythms sometimes confused 2 and 6, 3 and 8, and 3 and 5
+                                // offcourse it might be sample dependent but in most cases there were multiple algorythms voteing for example for 2  and multiple voteing for 6 about the same sample
+                                // System.out.println("Algorythm " + algorithm.getClass().getSimpleName() + " voted: " + predictedClass);
+                                votes[predictedClass]++;
+                            }
+                        }
+                    } 
+                    // Handle algorithms that return a single Integer
+                    else if (result instanceof Integer) {
+                        int predictedClass = (Integer) result;
+                        if (predictedClass >= 0 && predictedClass < votes.length) {
+                            // System.out.println("Algorythm " + algorithm.getClass().getSimpleName() + "voted: " + predictedClass);
+                            votes[predictedClass]++;
+                        }
+                    } else {
+                        System.err.println("Unexpected result type from algorithm: " + algorithm.getClass().getSimpleName());
+                    }
             }
-            intermediate[i] = sum;
+
+            // Find the class with the highest votes
+            int bestClass = 0;
+            int maxVotes = 0;
+            for (int i = 0; i < votes.length; i++) {
+                if (votes[i] > maxVotes) {
+                    maxVotes = votes[i];
+                    bestClass = i;
+                }
+            }
+
+            // Return the class with the most votes
+            return Integer.valueOf(bestClass);
         }
-        double distance = 0;
-        for (int i = 0; i < diff.length; i++) {
-            distance += diff[i] * intermediate[i];
-        }
-        return Math.sqrt(Math.max(distance, 0));
     }
 
     // function to evaluate success rate of inputed algorithm
     private static void evaluateAlgorithm(List<List<Integer>> dataSetA, List<List<Integer>> dataSetB, Algorithm algorithm, String label) {
+        Thread animationThread = new Thread(() -> showLoadingAnimation());
+        animationThread.start(); // Start the animation in a separate thread
+
+        // Start timing
+        long startTime = System.nanoTime();
+
         if (algorithm instanceof SupportVectorMachine svm) {
             int correctOneVsRest = 0;
             int correctOneVsOne = 0;
@@ -870,6 +1174,10 @@ public class CWmain {
             System.out.println("1-vs-Rest Success Rate: " + (correctOneVsRest / size) * 100 + "%");
             System.out.println("1-vs-1 Correct: " + correctOneVsOne + " / " + dataSetB.size());
             System.out.println("1-vs-1 Success Rate: " + (correctOneVsOne / size) * 100 + "%");
+
+            // End timing and print elapsed time
+            long endTime = System.nanoTime();
+            System.out.println("Evaluation Time: " + (endTime - startTime) / 1_000_000 + " ms");
             return;
         }
 
@@ -892,6 +1200,29 @@ public class CWmain {
         System.out.println("\n--- " + label + " Success Rate ---");
         System.out.println("Correct Matches: " + correctMatches + " / " + dataSetB.size());
         System.out.println("Success Rate: " + successRate + "%");
+
+        // Stop the animation
+        animationThread.interrupt();
+        // End timing and print elapsed time
+        long endTime = System.nanoTime();
+        System.out.println("Evaluation Time: " + (endTime - startTime) / 1_000_000_000.0 + " seconds");
+    }
+
+    // Function to display a simple animation with dots
+    private static void showLoadingAnimation() {
+        try {
+            String[] frames = {".  ", ".. ", "..."};
+            while (true) {
+                for (String frame : frames) {
+                    System.out.print("\revaluating" + frame);
+                    Thread.sleep(500);
+                }
+                System.out.print("\r             ");
+                Thread.sleep(500);
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     // function to read the csv files 
@@ -1069,9 +1400,12 @@ public class CWmain {
             System.out.println("4 -> Distance From Centroid");
             System.out.println("5 -> Support Vector Machine");
             System.out.println("6 -> K Nearest Neighbour");
-            System.out.println("7 -> Mahalanobis Distance");
+            System.out.println("7 -> K Means");
+            System.out.println("8 -> Mahalanobis Distance");
+            System.out.println("9 -> Genetic Algorythm");
+            System.out.println("10 -> All at Once");
             System.out.println("0 -> Exit");
-            System.out.print("\nEnter your choice (0-7): ");
+            System.out.print("\nEnter your choice (0-10): ");
             
             try {
                 int choice = scanner.nextInt();
@@ -1099,9 +1433,21 @@ public class CWmain {
                     case 6:
                         evaluateAlgorithm(dataSetA, dataSetB, K_NEAREST_NEIGHBOUR, "K Nearest Neighbour"); // train on A, test on B
                         break;
-
+                    
                     case 7:
+                        evaluateAlgorithm(dataSetA, dataSetB, K_MEANS, "K_MEANS"); // train on A, test on B
+                        break;
+
+                    case 8:
                         evaluateAlgorithm(dataSetA, dataSetB, MAHALANOBIS_DISTANCE, "Mahalanobis Distance"); // train on A, test on B
+                        break;
+
+                    case 9:
+                        evaluateAlgorithm(dataSetA, dataSetB, GENETIC_ALGORYTHM, "Genetic Algorythm"); // train on A, test on B
+                        break;
+
+                    case 10:
+                        evaluateAlgorithm(dataSetA, dataSetB, ALL_AT_ONCE, "All at Once"); // train on A, test on B
                         break;
 
                     case 0:
