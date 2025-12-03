@@ -1200,8 +1200,106 @@ public class CWmain {
             for (int i = 0; i < diff.length; i++) {
                 distance += diff[i] * intermediate[i];
             }
+            return Math.sqrt(distance);
+        }
+    }
 
-        // function to evaluate success rate of inputed algorithm
+
+   // All Algorithms above at once Algorithm :D
+    private static class AllAtOnce implements Algorithm {
+        
+        // Pre-trained SVM instances (trained once, used many times)
+        private SupportVectorMachine svmCentroidOnly;
+        private SupportVectorMachine svmAll;
+        private SupportVectorMachine svmRawCentroid;
+        private SupportVectorMachine svmRawKMeans;
+        private SupportVectorMachine svmRawGA;
+        private boolean trained = false;
+        
+        @Override
+        public Object predict(List<Integer> sample, List<List<Integer>> trainingSet) {
+            // Train all SVMs once on first call
+            if (!trained) {
+                trainAllSVMs(trainingSet);
+                trained = true;
+            }
+            
+            Algorithm[] algorithms = {
+                EUCLIDEAN_DISTANCE,
+                DISTANCE_FROM_CENTROID,
+                svmCentroidOnly,
+                svmAll,
+                svmRawCentroid,
+                svmRawKMeans,
+                svmRawGA,
+                K_NEAREST_NEIGHBOUR,
+                MAHALANOBIS_DISTANCE 
+            };
+
+            // Array to store votes for each digit class (0-9)
+            int[] votes = new int[10];
+
+            // Run each algorithm and collect predictions
+            for (Algorithm algorithm : algorithms) {
+                Object result = algorithm.predict(sample, trainingSet);
+                
+                // Handle algorithms that return int[] (e.g., SupportVectorMachine)
+                if (result instanceof int[]) {
+                    int[] intResult = (int[]) result;
+                    // SVM returns [OneVsRest, OneVsOne], count both predictions
+                    for (int prediction : intResult) {
+                        if (prediction >= 0 && prediction < 10) {
+                            votes[prediction]++;
+                        }
+                    }
+                } 
+                // Handle algorithms that return Integer
+                else if (result instanceof Integer) {
+                    int prediction = (Integer) result;
+                    if (prediction >= 0 && prediction < 10) {
+                        votes[prediction]++;
+                    }
+                }
+            }
+
+            int maxVotes = 0;
+            int bestDigit = 0;
+            
+            for (int digit = 0; digit < votes.length; digit++) {
+                if (votes[digit] > maxVotes) {
+                    maxVotes = votes[digit];
+                    bestDigit = digit;
+                }
+            }
+
+            // Return the digit with the most votes
+            return bestDigit;
+        }
+        
+        // Train all SVM variants once
+        private void trainAllSVMs(List<List<Integer>> trainingSet) {
+            System.out.println("Training ensemble SVMs...");
+            
+            svmCentroidOnly = new SupportVectorMachine(SupportVectorMachine.FeatureMode.CENTROID_ONLY);
+            svmCentroidOnly.predict(trainingSet.get(0), trainingSet); // Trigger training
+            
+            svmAll = new SupportVectorMachine(SupportVectorMachine.FeatureMode.ALL);
+            svmAll.predict(trainingSet.get(0), trainingSet);
+            
+            svmRawCentroid = new SupportVectorMachine(SupportVectorMachine.FeatureMode.RAW_CENTROID);
+            svmRawCentroid.predict(trainingSet.get(0), trainingSet);
+            
+            svmRawKMeans = new SupportVectorMachine(SupportVectorMachine.FeatureMode.RAW_KMEANS);
+            svmRawKMeans.predict(trainingSet.get(0), trainingSet);
+            
+            svmRawGA = new SupportVectorMachine(SupportVectorMachine.FeatureMode.RAW_GA);
+            svmRawGA.predict(trainingSet.get(0), trainingSet);
+            
+            System.out.println("Ensemble training complete!");
+        }
+    }
+
+    // function to evaluate success rate of inputed algorithm
     private static void evaluateAlgorithm(List<List<Integer>> dataSetA, List<List<Integer>> dataSetB, Algorithm algorithm, String label) {
 
             // Start the animation in a separate thread
