@@ -24,7 +24,7 @@ public class CWmain {
 
     // Initialize non-configurable algorithms as constants
     private static final Algorithm EUCLIDEAN_DISTANCE = new EuclideanDistance();
-    private static final Algorithm MULTI_LAYER_PERCEPTRON = new MultiLayerPerceptron();
+    // The MLP is instantiated dynamically in the UI to test different kernel functions
     private static final Algorithm DISTANCE_FROM_CENTROID = new DistanceFromCentroid();
     // The SVM is instantiated dynamically in the UI to test different kernel functions
     private static final Algorithm K_NEAREST_NEIGHBOUR = new K_NEAREST_NEIGHBOUR();
@@ -388,31 +388,70 @@ public class CWmain {
         }
     }
 
-    // Multi Layer Perceptron Algorythm
+   // Multi Layer Perceptron Algorithm
     private static class MultiLayerPerceptron implements Algorithm {
-        // modify these hyper parameters to tune the neural network:
-        private static final int PERCEPTRONS = 100; // number of neurons in the hidden layer
-        private static final int EPOCHS = 50; // number of training iterations
-        // 500 perceptrons and 500 epochs fairs best for training on A and testing on B
-        // 1000 perceptrons and 50 epochs fairs best for training on B and testing on A
-        private static final double LEARNING_RATE = 0.1;
-        private static final long RANDOM_SEED = 42; // Fixed seed for the random number generator to ensure reproducibility.
+        // Enum to control which features to use
+        public enum FeatureMode {
+            RAW_ONLY,           // Just the 64 raw pixels
+            CENTROID_ONLY,      // Only distances to class centroids
+            RAW_CENTROID,       // Raw pixels + centroid distances
+            RAW_KMEANS,         // Raw pixels + K-Means distances
+            RAW_GA,             // Raw pixels + GA weighted pixels
+            ALL                 // Raw + Centroid + KMeans + GA
+        }
 
-        // fixed parameters:
-        private static final int CLASSES = 10; // number of classes (digits 0-9)
-        private double[][] weightsInputHidden; // weights between input and hidden layer [perceptron][features]
+        // Hyperparameters
+        private static final int PERCEPTRONS = 500;
+        private static final int EPOCHS = 100;
+        // 500 perceptrons and 500 epochs have best results when training on A and testing on B
+        // 1000 perceptrons and 50 epochs have best results when training on B and testing on A
+        private static final double LEARNING_RATE = 0.1;
+        private static final long RANDOM_SEED = 42; // fixed seed for reproducibility
+        private static final int CLASSES = 10;
+
+        private final FeatureMode mode;
+        
+        // Network weights
+        private double[][] weightsInputHidden; // weights from input to hidden layer [PERCEPTRONS][inputSize]
         private double[] biasHidden;
-        private double[][] weightsHiddenOutput; // weights between hidden and output layer [classes][perceptron]
+        private double[][] weightsHiddenOutput; // weights from hidden to output layer [CLASSES][PERCEPTRONS]
         private double[] biasOutput;
         private boolean trained = false;
+        
+        // Feature caches (computed once during training)
+        private double[][] centroidCache;
+        private double[][] kmeansCentroidCache;
+        private double[] gaWeightsCache;
+        private int inputSize; // Actual input size
+
+        private double[] featureMean;
+        private double[] featureStd;
+
+        // Default constructor uses raw pixels only (backward compatible)
+        public MultiLayerPerceptron() {
+            this(FeatureMode.RAW_ONLY);
+        }
+        
+        // Constructor with feature mode
+        public MultiLayerPerceptron(FeatureMode mode) {
+            this.mode = mode;
+        }
 
         @Override
         public Object predict(List<Integer> sample, List<List<Integer>> trainingSet) {
             if (!trained) {
                 train(trainingSet);
             }
-            double[] inputs = toInputVector(sample); // convert input sample to double array
-            double[] outputs = forward(inputs); // forward propagation to get output activations
+            
+            double[] inputs = buildFeatureVector(sample); // create all beatmaps with selected features
+
+            // normalize bitmaps with exclusion oforiginal raw bitmap
+            if (mode != FeatureMode.RAW_ONLY){
+                inputs = normalizeFeatures(inputs);
+            }
+            
+            double[] outputs = forward(inputs); // forward pass
+            
             int bestIndex = 0;
             double bestValue = outputs[0];
             for (int i = 1; i < outputs.length; i++) {
@@ -424,28 +463,43 @@ public class CWmain {
             return Integer.valueOf(bestIndex);
         }
 
-        // method to train the multi layer perceptron (neural network) using backpropagation
         private void train(List<List<Integer>> trainingSet) {
+            // Compute feature caches based on mode
+            computeFeatureCaches(trainingSet);
+            
+            // Determine input size from feature vector
+            inputSize = buildFeatureVector(trainingSet.get(0)).length;
+            
+            // compute normalization of bitmaps with exclusion oforiginal raw bitmap
+            if (mode != FeatureMode.RAW_ONLY){
+                computeNormalizationStats(trainingSet);
+            }
+            
+
             initializeWeights();
 
-            // loop running epochs of training
+            // Training loop
             for (int epoch = 0; epoch < EPOCHS; epoch++) {
                 for (List<Integer> row : trainingSet) {
-                    double[] inputs = toInputVector(row);
+                    double[] inputs = buildFeatureVector(row);
+                    // normalize bitmaps with exclusion of original raw bitmap
+                    if (mode != FeatureMode.RAW_ONLY) {
+                        inputs = normalizeFeatures(inputs);
+                    }
                     int targetClass = row.get(BITMAP_SIZE);
                     double[] hidden = new double[PERCEPTRONS];
                     double[] outputs = new double[CLASSES];
 
-                    // forward pass to calculate hidden layer
+                    // Forward pass - hidden layer
                     for (int h = 0; h < PERCEPTRONS; h++) {
                         double sum = biasHidden[h];
-                        for (int i = 0; i < BITMAP_SIZE; i++) {
+                        for (int i = 0; i < inputSize; i++) {
                             sum += weightsInputHidden[h][i] * inputs[i];
                         }
                         hidden[h] = sigmoid(sum);
                     }
 
-                    // forward pass to calculate output layer
+                    // Forward pass - output layer
                     for (int o = 0; o < CLASSES; o++) {
                         double sum = biasOutput[o];
                         for (int h = 0; h < PERCEPTRONS; h++) {
@@ -454,18 +508,19 @@ public class CWmain {
                         outputs[o] = sigmoid(sum);
                     }
 
+                    // Prepare target vector
                     double[] target = new double[CLASSES];
                     target[targetClass] = 1.0;
 
+                    // Backpropagation - output layer
                     double[] outputDeltas = new double[CLASSES];
-                    // calculate gradients for output layer
                     for (int o = 0; o < CLASSES; o++) {
                         double error = target[o] - outputs[o];
                         outputDeltas[o] = error * sigmoidDerivative(outputs[o]);
                     }
 
+                    // Backpropagation - hidden layer
                     double[] hiddenDeltas = new double[PERCEPTRONS];
-                    // calculate gradients for hidden layer
                     for (int h = 0; h < PERCEPTRONS; h++) {
                         double error = 0;
                         for (int o = 0; o < CLASSES; o++) {
@@ -474,15 +529,15 @@ public class CWmain {
                         hiddenDeltas[h] = error * sigmoidDerivative(hidden[h]);
                     }
 
-                    // update weights and biases between hidden layer
+                    // Update weights - input to hidden
                     for (int h = 0; h < PERCEPTRONS; h++) {
-                        for (int i = 0; i < BITMAP_SIZE; i++) {
+                        for (int i = 0; i < inputSize; i++) {
                             weightsInputHidden[h][i] += LEARNING_RATE * hiddenDeltas[h] * inputs[i];
                         }
                         biasHidden[h] += LEARNING_RATE * hiddenDeltas[h];
                     }
 
-                    // update weights and biases between output layer
+                    // Update weights - hidden to output
                     for (int o = 0; o < CLASSES; o++) {
                         for (int h = 0; h < PERCEPTRONS; h++) {
                             weightsHiddenOutput[o][h] += LEARNING_RATE * outputDeltas[o] * hidden[h];
@@ -495,18 +550,98 @@ public class CWmain {
             trained = true;
         }
 
-        // method to initialize weights and biases
+        // Compute necessary feature caches based on the selected mode
+        private void computeFeatureCaches(List<List<Integer>> trainingSet) {
+            boolean needCentroids = (mode == FeatureMode.ALL || mode == FeatureMode.CENTROID_ONLY || 
+                                    mode == FeatureMode.RAW_CENTROID);
+            boolean needKMeans = (mode == FeatureMode.ALL || mode == FeatureMode.RAW_KMEANS);
+            boolean needGA = (mode == FeatureMode.ALL || mode == FeatureMode.RAW_GA);
+
+            if (needCentroids) {
+                centroidCache = calculateCentroids(trainingSet);
+            }
+            if (needKMeans) {
+                kmeansCentroidCache = computeKMeansCentroids(trainingSet, KMEANS_CLUSTERS);
+            }
+            if (needGA) {
+                gaWeightsCache = evolveGeneticWeights(trainingSet);
+            }
+        }
+
+        // Build feature vector based on selected mode
+        private double[] buildFeatureVector(List<Integer> sample) {
+            double[] raw = buildRawPixelsVector(sample);
+
+            switch (mode) {
+                case RAW_ONLY:
+                    return raw;
+                case CENTROID_ONLY:
+                    return buildCentroidDistanceVector(sample, centroidCache);
+                case RAW_CENTROID:
+                    return concatVectors(raw, buildCentroidDistanceVector(sample, centroidCache));
+                case RAW_KMEANS:
+                    return concatVectors(raw, buildKMeansDistanceVector(sample, kmeansCentroidCache));
+                case RAW_GA:
+                    return concatVectors(raw, buildGAWeightedVector(sample, gaWeightsCache));
+                case ALL:
+                default:
+                    return buildCombinedFeatureVector(sample, centroidCache, kmeansCentroidCache, gaWeightsCache);
+            }
+        }
+
+        // Compute mean and standard deviation for feature normalization
+        private void computeNormalizationStats(List<List<Integer>> trainingSet) {
+            featureMean = new double[inputSize];
+            featureStd = new double[inputSize];
+            
+            // Compute mean
+            for (List<Integer> row : trainingSet) {
+                double[] features = buildFeatureVector(row);
+                for (int i = 0; i < inputSize; i++) {
+                    featureMean[i] += features[i];
+                }
+            }
+            for (int i = 0; i < inputSize; i++) {
+                featureMean[i] /= trainingSet.size();
+            }
+            
+            // Compute standard deviation
+            for (List<Integer> row : trainingSet) {
+                double[] features = buildFeatureVector(row);
+                for (int i = 0; i < inputSize; i++) {
+                    double diff = features[i] - featureMean[i];
+                    featureStd[i] += diff * diff;
+                }
+            }
+            for (int i = 0; i < inputSize; i++) {
+                featureStd[i] = Math.sqrt(featureStd[i] / trainingSet.size());
+                // Prevent division by zero
+                if (featureStd[i] < 1e-9) {
+                    featureStd[i] = 1.0;
+                }
+            }
+        }
+
+        // Normalize features using computed statistics
+        private double[] normalizeFeatures(double[] features) {
+            double[] normalized = new double[features.length];
+            for (int i = 0; i < features.length; i++) {
+                normalized[i] = (features[i] - featureMean[i]) / featureStd[i];
+            }
+            return normalized;
+        }
+
         private void initializeWeights() {
-            weightsInputHidden = new double[PERCEPTRONS][BITMAP_SIZE];
+            weightsInputHidden = new double[PERCEPTRONS][inputSize];
             biasHidden = new double[PERCEPTRONS];
             weightsHiddenOutput = new double[CLASSES][PERCEPTRONS];
             biasOutput = new double[CLASSES];
             Random random = new Random(RANDOM_SEED);
 
-            double range = 0.1; // maximum absolute value for initial weights and biases
+            double range = 0.1;
             for (int h = 0; h < PERCEPTRONS; h++) {
                 biasHidden[h] = (random.nextDouble() * 2 - 1) * range;
-                for (int i = 0; i < BITMAP_SIZE; i++) {
+                for (int i = 0; i < inputSize; i++) {
                     weightsInputHidden[h][i] = (random.nextDouble() * 2 - 1) * range;
                 }
             }
@@ -518,12 +653,11 @@ public class CWmain {
             }
         }
 
-        // method for forward propagation (useing trained weights to predict the class)
         private double[] forward(double[] inputs) {
             double[] hidden = new double[PERCEPTRONS];
             for (int h = 0; h < PERCEPTRONS; h++) {
                 double sum = biasHidden[h];
-                for (int i = 0; i < BITMAP_SIZE; i++) {
+                for (int i = 0; i < inputSize; i++) {
                     sum += weightsInputHidden[h][i] * inputs[i];
                 }
                 hidden[h] = sigmoid(sum);
@@ -540,32 +674,20 @@ public class CWmain {
             return outputs;
         }
 
-        // method to convert inputed sample into input vector (from int -> double)
-        private double[] toInputVector(List<Integer> sample) {
-            double[] inputs = new double[BITMAP_SIZE];
-            for (int i = 0; i < BITMAP_SIZE; i++) {
-                inputs[i] = sample.get(i);
-            }
-            return inputs;
-        }
-
-        // Sigmoid method to describe sides of the perceptron activation
         private double sigmoid(double x) {
-            return 1.0 / (1.0 + Math.exp(-x)); // exp() computes how the sigmoid will grow and divide the space
+            return 1.0 / (1.0 + Math.exp(-x));
         }
 
-        // Derivative of the sigmoid method for backpropagation to adjust weights converting error to gradient
         private double sigmoidDerivative(double activatedValue) {
             return activatedValue * (1.0 - activatedValue);
         }
 
-        // Expose the parameters used for calculation
         public String getParameters() {
-            return "Epochs: " + EPOCHS + ", Learning rate: " + LEARNING_RATE  + ", perceptrons: " + PERCEPTRONS + ", Random seed: " + RANDOM_SEED;
+            return "Mode: " + mode + ", Epochs: " + EPOCHS + ", Learning rate: " + LEARNING_RATE + ", Perceptrons: " + PERCEPTRONS + ", Input size: " + inputSize + ", Random seed: " + RANDOM_SEED;
         }
     }
 
-    // Distance From Centroid Algorithm
+     // Distance From Centroid Algorithm
     private static class DistanceFromCentroid implements Algorithm {
         @Override
         public Object predict(List<Integer> sample, List<List<Integer>> trainingSet) {
@@ -596,11 +718,11 @@ public class CWmain {
 
         // Enum to control which features/kernels to use for the SVM training
         public enum FeatureMode {
-            ALL, // Raw + Centroid + KMeans + GA (most complex kernel)
-            CENTROID_ONLY, // Only Distances to Class Centroids (often a strong baseline)
-            RAW_CENTROID, // Raw Pixels + Centroid Distances
-            RAW_KMEANS, // Raw Pixels + K-Means Distances
-            RAW_GA // Raw Pixels + GA Weighted Pixels
+            ALL,                // Raw + Centroid + KMeans + GA (most complex kernel)
+            CENTROID_ONLY,      // Only Distances to Class Centroids
+            RAW_CENTROID,       // Raw Pixels + Centroid Distances
+            RAW_KMEANS,         // Raw Pixels + K-Means Distances
+            RAW_GA              // Raw Pixels + GA Weighted Pixels
         }
 
         private static final int CLASSES = 10;
@@ -1204,8 +1326,7 @@ public class CWmain {
         }
     }
 
-
-   // All Algorithms above at once Algorithm :D
+    // All Algorithms above at once Algorithm :D
     private static class AllAtOnce implements Algorithm {
         
         // Pre-trained SVM instances (trained once, used many times)
@@ -1214,26 +1335,44 @@ public class CWmain {
         private SupportVectorMachine svmRawCentroid;
         private SupportVectorMachine svmRawKMeans;
         private SupportVectorMachine svmRawGA;
+        
+        // Pre-trained MLP instances (trained once, used many times)
+        private MultiLayerPerceptron mlpRawOnly;
+        private MultiLayerPerceptron mlpCentroidOnly;
+        private MultiLayerPerceptron mlpAll;
+        private MultiLayerPerceptron mlpRawCentroid;
+        private MultiLayerPerceptron mlpRawKMeans;
+        private MultiLayerPerceptron mlpRawGA;
+        
         private boolean trained = false;
         
         @Override
         public Object predict(List<Integer> sample, List<List<Integer>> trainingSet) {
-            // Train all SVMs once on first call
+            // Train all models once on first call
             if (!trained) {
                 trainAllSVMs(trainingSet);
+                trainAllMLPs(trainingSet);
                 trained = true;
             }
             
             Algorithm[] algorithms = {
                 EUCLIDEAN_DISTANCE,
                 DISTANCE_FROM_CENTROID,
+                K_NEAREST_NEIGHBOUR,
+                MAHALANOBIS_DISTANCE,
+                // SVM variants
                 svmCentroidOnly,
                 svmAll,
                 svmRawCentroid,
                 svmRawKMeans,
                 svmRawGA,
-                K_NEAREST_NEIGHBOUR,
-                MAHALANOBIS_DISTANCE 
+                // MLP variants
+                mlpRawOnly,
+                mlpCentroidOnly,
+                mlpAll,
+                mlpRawCentroid,
+                mlpRawKMeans,
+                mlpRawGA
             };
 
             // Array to store votes for each digit class (0-9)
@@ -1295,7 +1434,32 @@ public class CWmain {
             svmRawGA = new SupportVectorMachine(SupportVectorMachine.FeatureMode.RAW_GA);
             svmRawGA.predict(trainingSet.get(0), trainingSet);
             
-            System.out.println("Ensemble training complete!");
+            System.out.println("SVM training complete!");
+        }
+
+        // Train all MLP variants once
+        private void trainAllMLPs(List<List<Integer>> trainingSet) {
+            System.out.println("Training ensemble MLPs...");
+            
+            mlpRawOnly = new MultiLayerPerceptron(MultiLayerPerceptron.FeatureMode.RAW_ONLY);
+            mlpRawOnly.predict(trainingSet.get(0), trainingSet); // Trigger training
+            
+            mlpCentroidOnly = new MultiLayerPerceptron(MultiLayerPerceptron.FeatureMode.CENTROID_ONLY);
+            mlpCentroidOnly.predict(trainingSet.get(0), trainingSet);
+            
+            mlpAll = new MultiLayerPerceptron(MultiLayerPerceptron.FeatureMode.ALL);
+            mlpAll.predict(trainingSet.get(0), trainingSet);
+            
+            mlpRawCentroid = new MultiLayerPerceptron(MultiLayerPerceptron.FeatureMode.RAW_CENTROID);
+            mlpRawCentroid.predict(trainingSet.get(0), trainingSet);
+            
+            mlpRawKMeans = new MultiLayerPerceptron(MultiLayerPerceptron.FeatureMode.RAW_KMEANS);
+            mlpRawKMeans.predict(trainingSet.get(0), trainingSet);
+            
+            mlpRawGA = new MultiLayerPerceptron(MultiLayerPerceptron.FeatureMode.RAW_GA);
+            mlpRawGA.predict(trainingSet.get(0), trainingSet);
+            
+            System.out.println("MLP training complete!");
         }
     }
 
@@ -1472,24 +1636,33 @@ public class CWmain {
                     int choice = scanner.nextInt();
                     switch (choice) {
                         case 1:
-                            if (dataSetA != null)
+                            if (dataSetA != null) {
                                 printDataSet(dataSetA);
+                            }  
                             break;
+
                         case 2:
-                            if (dataSetB != null)
+                            if (dataSetB != null) {
                                 printDataSet(dataSetB);
+                            }   
                             break;
+
                         case 3:
-                            if (dataSetA != null)
+                            if (dataSetA != null) {
                                 printLimitedDataSet(dataSetA);
+                            }
                             break;
+
                         case 4:
-                            if (dataSetB != null)
+                            if (dataSetB != null) {
                                 printLimitedDataSet(dataSetB);
+                            }
                             break;
+
                         case 0:
                             running = false;
                             break;
+
                         default:
                             System.out.println(
                                     "\nInvalid choice. Please enter a number corresponding to available actions.");
@@ -1531,44 +1704,61 @@ public class CWmain {
                             break;
 
                         case 2:
-                        evaluateAlgorithm(dataSetA, dataSetB, EUCLIDEAN_DISTANCE, "Euclidean Distance"); // train on A, test on B
+                            evaluateAlgorithm(dataSetA, dataSetB, EUCLIDEAN_DISTANCE, "Euclidean Distance"); // train on A, test on B
                             break;
 
                         case 3:
-                        evaluateAlgorithm(dataSetA, dataSetB, MULTI_LAYER_PERCEPTRON, "Multi Layer Perceptron"); // train on A, test on B
+                            // MLP (raw pixels only)
+                            evaluateAlgorithm(dataSetA, dataSetB, new MultiLayerPerceptron(MultiLayerPerceptron.FeatureMode.RAW_ONLY), "MLP [Raw Only]");
+
+                            // MLP with all features
+                            evaluateAlgorithm(dataSetA, dataSetB, new MultiLayerPerceptron(MultiLayerPerceptron.FeatureMode.ALL), "MLP [All Features]");
+                            
+                            // MLP with centroid distances
+                            evaluateAlgorithm(dataSetA, dataSetB, new MultiLayerPerceptron(MultiLayerPerceptron.FeatureMode.CENTROID_ONLY), "MLP [Centroid Only]");
+                            
+                            // MLP with combined features
+                            evaluateAlgorithm(dataSetA, dataSetB, new MultiLayerPerceptron(MultiLayerPerceptron.FeatureMode.RAW_CENTROID), "MLP [Raw + Centroid]");
+                            
+                            // MLP with K-Means features
+                            evaluateAlgorithm(dataSetA, dataSetB, new MultiLayerPerceptron(MultiLayerPerceptron.FeatureMode.RAW_KMEANS), "MLP [Raw + KMeans]");
+                            
+                            // MLP with GA-weighted features
+                            evaluateAlgorithm(dataSetA, dataSetB, new MultiLayerPerceptron(MultiLayerPerceptron.FeatureMode.RAW_GA), "MLP [Raw + GA]");
+                            
                             break;
 
                         case 4:
-                        evaluateAlgorithm(dataSetA, dataSetB, DISTANCE_FROM_CENTROID, "Distance From Centroid"); // train on A, test on B
+                            evaluateAlgorithm(dataSetA, dataSetB, DISTANCE_FROM_CENTROID, "Distance From Centroid"); // train on A, test on B
                             break;
 
                         case 5:
-                            // Baseline: Centroid Distances only
-                        evaluateAlgorithm(dataSetA, dataSetB, new SupportVectorMachine(SupportVectorMachine.FeatureMode.CENTROID_ONLY), "SVM [Centroid Only]"); // train on A, test on B
+                            // SVM Centroid Distances only
+                            evaluateAlgorithm(dataSetA, dataSetB, new SupportVectorMachine(SupportVectorMachine.FeatureMode.CENTROID_ONLY), "SVM [Centroid Only]"); // train on A, test on B
 
-                            // Full combined feature set (Raw + Centroid + KMeans + GA)
-                        evaluateAlgorithm(dataSetA, dataSetB, new SupportVectorMachine(SupportVectorMachine.FeatureMode.ALL), "SVM [Combined Features]"); // train on A, test on B
+                            // SVM with all features
+                            evaluateAlgorithm(dataSetA, dataSetB, new SupportVectorMachine(SupportVectorMachine.FeatureMode.ALL), "SVM [All Features]"); // train on A, test on B
 
-                            // Simple Raw + Centroid mix
-                        evaluateAlgorithm(dataSetA, dataSetB, new SupportVectorMachine(SupportVectorMachine.FeatureMode.RAW_CENTROID), "SVM [Raw + Centroid]"); // train on A, test on B
+                            // SVM Simple Raw + Centroid mix
+                            evaluateAlgorithm(dataSetA, dataSetB, new SupportVectorMachine(SupportVectorMachine.FeatureMode.RAW_CENTROID), "SVM [Raw + Centroid]"); // train on A, test on B
 
-                            // Raw + K-Means Distances
-                        evaluateAlgorithm(dataSetA, dataSetB, new SupportVectorMachine(SupportVectorMachine.FeatureMode.RAW_KMEANS), "SVM [Raw + KMeans]"); // train on A, test on B
+                            // SVM Raw + K-Means Distances
+                            evaluateAlgorithm(dataSetA, dataSetB, new SupportVectorMachine(SupportVectorMachine.FeatureMode.RAW_KMEANS), "SVM [Raw + KMeans]"); // train on A, test on B
 
-                            // Raw + GA Weighted Pixels
-                        evaluateAlgorithm(dataSetA, dataSetB, new SupportVectorMachine(SupportVectorMachine.FeatureMode.RAW_GA), "SVM [Raw + GA]"); // train on A, test on B
+                            // SVM Raw + GA Weighted Pixels
+                            evaluateAlgorithm(dataSetA, dataSetB, new SupportVectorMachine(SupportVectorMachine.FeatureMode.RAW_GA), "SVM [Raw + GA]"); // train on A, test on B
                             break;
 
                         case 6:
-                        evaluateAlgorithm(dataSetA, dataSetB, K_NEAREST_NEIGHBOUR, "K Nearest Neighbour"); // train on A, test on B
+                            evaluateAlgorithm(dataSetA, dataSetB, K_NEAREST_NEIGHBOUR, "K Nearest Neighbour"); // train on A, test on B
                             break;
 
                         case 7:
-                        evaluateAlgorithm(dataSetA, dataSetB, MAHALANOBIS_DISTANCE, "Mahalanobis Distance"); // train on A, test on B
+                            evaluateAlgorithm(dataSetA, dataSetB, MAHALANOBIS_DISTANCE, "Mahalanobis Distance"); // train on A, test on B
                             break;
 
                         case 8:
-                        evaluateAlgorithm(dataSetA, dataSetB, ALL_AT_ONCE, "All at Once (Ensemble)"); // train on A, test on B
+                            evaluateAlgorithm(dataSetA, dataSetB, ALL_AT_ONCE, "All at Once (Ensemble)"); // train on A, test on B
                             break;
 
                         case 0:
