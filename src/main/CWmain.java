@@ -43,16 +43,16 @@ public class CWmain {
         for (List<Integer> row : trainingSet) {
             int instance = row.get(BITMAP_SIZE); // The class label (0-9)
             countPerClass[instance]++;
-            for (int i = 0; i < BITMAP_SIZE; i++) {
-                sumPerClass[instance][i] += row.get(i);
+            for (int iteration = 0; iteration < BITMAP_SIZE; iteration++) {
+                sumPerClass[instance][iteration] += row.get(iteration);
             }
         }
 
         // Calculate the average (centroid)
         for (int digit = 0; digit < 10; digit++) {
             if (countPerClass[digit] > 0) {
-                for (int i = 0; i < BITMAP_SIZE; i++) {
-                    centroids[digit][i] = sumPerClass[digit][i] / countPerClass[digit];
+                for (int iteration = 0; iteration < BITMAP_SIZE; iteration++) {
+                    centroids[digit][iteration] = sumPerClass[digit][iteration] / countPerClass[digit];
                 }
             }
         }
@@ -72,18 +72,18 @@ public class CWmain {
 
         // K-Means++ Initialization: selects initial centroids intelligently
         List<Integer> first = trainingSet.get(random.nextInt(trainingSet.size()));
-        for (int j = 0; j < BITMAP_SIZE; j++) {
-            centroids[0][j] = first.get(j);
+        for (int iteration = 0; iteration < BITMAP_SIZE; iteration++) {
+            centroids[0][iteration] = first.get(iteration);
         }
 
-        for (int k = 1; k < clusters; k++) {
+        for (int cluster = 1; cluster < clusters; cluster++) {
             double[] dist = new double[trainingSet.size()];
             double total = 0;
             // Calculate distance to the nearest existing centroid for all samples
             for (int i = 0; i < trainingSet.size(); i++) {
                 List<Integer> sample = trainingSet.get(i);
                 double minDistance = Double.MAX_VALUE;
-                for (int c = 0; c < k; c++) {
+                for (int c = 0; c < cluster; c++) {
                     double distance = 0;
                     for (int f = 0; f < BITMAP_SIZE; f++) {
                         double diff = sample.get(f) - centroids[c][f];
@@ -104,7 +104,7 @@ public class CWmain {
                 if (cumulativeDistance >= randomValue) {
                     List<Integer> picked = trainingSet.get(i);
                     for (int j = 0; j < BITMAP_SIZE; j++) {
-                        centroids[k][j] = picked.get(j);
+                        centroids[cluster][j] = picked.get(j);
                     }
                     break;
                 }
@@ -119,15 +119,15 @@ public class CWmain {
             // Assign points to nearest centroid
             for (List<Integer> s : trainingSet) {
                 int best = 0;
-                double bestD = Double.MAX_VALUE;
+                double bestDouble = Double.MAX_VALUE;
                 for (int c = 0; c < clusters; c++) {
                     double d = 0;
                     for (int f = 0; f < BITMAP_SIZE; f++) {
                         double diff = s.get(f) - centroids[c][f];
                         d += diff * diff;
                     }
-                    if (d < bestD) {
-                        bestD = d;
+                    if (d < bestDouble) {
+                        bestDouble = d;
                         best = c;
                     }
                 }
@@ -156,7 +156,7 @@ public class CWmain {
         return centroids;
     }
 
-    // function to compute Euclidean distances from a sample to the K-Means centroids
+    // function to compute Euclidean distances from a sample to the K-Means centroiEUCLIDEAN_DISTANCEds
     public static double[] computeKMeansDistances(List<Integer> sample, double[][] kmeansCentroids) {
         if (kmeansCentroids == null) {
             return new double[0];
@@ -945,8 +945,8 @@ public class CWmain {
 
                     // Perceptron learning rule
                     if (y * score <= MARGIN) {
-                        for (int f = 0; f < featureSize; f++) {
-                            model.weights[0][f] += LEARNING_RATE * y * features[idx][f];
+                        for (int feature = 0; feature < featureSize; feature++) {
+                            model.weights[0][feature] += LEARNING_RATE * y * features[idx][feature];
                         }
                         model.bias[0] += LEARNING_RATE * y;
                         updated = true;
@@ -985,11 +985,11 @@ public class CWmain {
                 double[] scores = new double[weights.length];
                 int predicted = 0;
                 double max = Double.NEGATIVE_INFINITY;
-                for (int c = 0; c < weights.length; c++) {
-                    scores[c] = pointInFeatureSpace(c, features) + bias[c];
-                    if (scores[c] > max) {
-                        max = scores[c];
-                        predicted = c;
+                for (int class = 0; class < weights.length; class++) {
+                    scores[class] = pointInFeatureSpace(class, features) + bias[class];
+                    if (scores[class] > max) {
+                        max = scores[class];
+                        predicted = class;
                     }
                 }
                 return new PredictionResult(predicted, scores);
@@ -1004,8 +1004,8 @@ public class CWmain {
             double pointInFeatureSpace(int classIdx, double[] features) {
                 double sum = 0;
 
-                for (int i = 0; i < features.length; i++) {
-                    sum += weights[classIdx][i] * features[i];
+                for (int point = 0; point < features.length; point++) {
+                    sum += weights[classIdx][point] * features[point];
                 }
 
                 return sum;
@@ -1022,11 +1022,11 @@ public class CWmain {
             // Adds current weights/biases to the running sums for averaging
             void accumulateAverages() {
                 steps++;
-                for (int c = 0; c < weights.length; c++) {
+                for (int classIdx = 0; classIdx < weights.length; classIdx++) {
                     for (int f = 0; f < weights[0].length; f++) {
-                        weightSums[c][f] += weights[c][f];
+                        weightSums[classIdx][f] += weights[classIdx][f];
                     }
-                    biasSums[c] += bias[c];
+                    biasSums[classIdx] += bias[classIdx];
                 }
             }
 
@@ -1063,22 +1063,22 @@ public class CWmain {
                 }
 
                 // Calculates Mean and Standard Deviation (Fit)
-                for (int f = 0; f < featureSize; f++) {
+                for (int feature = 0; feature < featureSize; feature++) {
                     double sum = 0, sumSq = 0;
                     for (double[] row : matrix) {
-                        sum += row[f];
-                        sumSq += row[f] * row[f];
+                        sum += row[feature];
+                        sumSq += row[feature] * row[feature];
                     }
-                    mean[f] = sum / matrix.length;
-                    double var = (sumSq / matrix.length) - (mean[f] * mean[f]);
+                    mean[feature] = sum / matrix.length;
+                    double var = (sumSq / matrix.length) - (mean[feature] * mean[feature]);
                     // Use a small epsilon to prevent division by zero for constant features
-                    std[f] = Math.max(Math.sqrt(Math.max(var, 0)), 1e-9);
+                    std[feature] = Math.max(Math.sqrt(Math.max(var, 0)), 1e-9);
                 }
 
                 // Apply Normalization (Transform)
                 for (double[] row : matrix) {
-                    for (int f = 0; f < featureSize; f++) {
-                        row[f] = (row[f] - mean[f]) / std[f];
+                    for (int feature = 0; feature < featureSize; feature++) {
+                        row[feature] = (row[feature] - mean[feature]) / std[feature];
                     }
                 }
             }
@@ -1086,8 +1086,8 @@ public class CWmain {
             // Applies normalization to a single input vector using pre-calculated stats
             double[] normalize(double[] vector) {
                 double[] out = new double[featureSize];
-                for (int f = 0; f < featureSize; f++)
-                    out[f] = (vector[f] - mean[f]) / std[f];
+                for (int feature = 0; feature < featureSize; feature++)
+                    out[feature] = (vector[feature] - mean[feature]) / std[feature];
                 return out;
             }
         }
@@ -1097,9 +1097,9 @@ public class CWmain {
             int predictedClass;
             double[] scores;
 
-            PredictionResult(int p, double[] s) {
-                this.predictedClass = p;
-                this.scores = s;
+            PredictionResult(int predicted, double[] score) {
+                this.predictedClass = predicted;
+                this.scores = score;
             }
         }
     }
@@ -1114,8 +1114,8 @@ public class CWmain {
 
             for (List<Integer> candidate : trainingSet) {
                 double distance = 0;
-                for (int i = 0; i < BITMAP_SIZE; i++) {
-                    double diff = sample.get(i) - candidate.get(i);
+                for (int row = 0; row < BITMAP_SIZE; row++) {
+                    double diff = sample.get(row) - candidate.get(row);
                     distance += diff * diff; // Squared Euclidean Distance gives better results than square root
                 }
 
@@ -1326,7 +1326,7 @@ public class CWmain {
         }
     }
 
-    // All Algorithms above at once Algorithm :D
+    // All at Once Algorithm (Ensemble of all algorithms with majority voting)
     private static class AllAtOnce implements Algorithm {
         
         // Pre-trained SVM instances (trained once, used many times)
@@ -1350,9 +1350,11 @@ public class CWmain {
         public Object predict(List<Integer> sample, List<List<Integer>> trainingSet) {
             // Train all models once on first call
             if (!trained) {
+                System.out.println("Training SVM and MLP variants (this will take a moment)...");
                 trainAllSVMs(trainingSet);
                 trainAllMLPs(trainingSet);
                 trained = true;
+                System.out.println("variants training complete!");
             }
             
             Algorithm[] algorithms = {
@@ -1417,7 +1419,7 @@ public class CWmain {
         
         // Train all SVM variants once
         private void trainAllSVMs(List<List<Integer>> trainingSet) {
-            System.out.println("Training ensemble SVMs...");
+            System.out.println("  Training SVM variants...");
             
             svmCentroidOnly = new SupportVectorMachine(SupportVectorMachine.FeatureMode.CENTROID_ONLY);
             svmCentroidOnly.predict(trainingSet.get(0), trainingSet); // Trigger training
@@ -1434,12 +1436,12 @@ public class CWmain {
             svmRawGA = new SupportVectorMachine(SupportVectorMachine.FeatureMode.RAW_GA);
             svmRawGA.predict(trainingSet.get(0), trainingSet);
             
-            System.out.println("SVM training complete!");
+            System.out.println("  SVM training complete!");
         }
 
         // Train all MLP variants once
         private void trainAllMLPs(List<List<Integer>> trainingSet) {
-            System.out.println("Training ensemble MLPs...");
+            System.out.println("  Training MLP variants...");
             
             mlpRawOnly = new MultiLayerPerceptron(MultiLayerPerceptron.FeatureMode.RAW_ONLY);
             mlpRawOnly.predict(trainingSet.get(0), trainingSet); // Trigger training
@@ -1459,332 +1461,491 @@ public class CWmain {
             mlpRawGA = new MultiLayerPerceptron(MultiLayerPerceptron.FeatureMode.RAW_GA);
             mlpRawGA.predict(trainingSet.get(0), trainingSet);
             
-            System.out.println("MLP training complete!");
+            System.out.println("  MLP training complete!");
+        }
+        
+        // Accessor methods for pretrained models (for use in runAllInOrder)
+        public SupportVectorMachine getSvmCentroidOnly() { return svmCentroidOnly; }
+        public SupportVectorMachine getSvmAll() { return svmAll; }
+        public SupportVectorMachine getSvmRawCentroid() { return svmRawCentroid; }
+        public SupportVectorMachine getSvmRawKMeans() { return svmRawKMeans; }
+        public SupportVectorMachine getSvmRawGA() { return svmRawGA; }
+        
+        public MultiLayerPerceptron getMlpRawOnly() { return mlpRawOnly; }
+        public MultiLayerPerceptron getMlpCentroidOnly() { return mlpCentroidOnly; }
+        public MultiLayerPerceptron getMlpAll() { return mlpAll; }
+        public MultiLayerPerceptron getMlpRawCentroid() { return mlpRawCentroid; }
+        public MultiLayerPerceptron getMlpRawKMeans() { return mlpRawKMeans; }
+        public MultiLayerPerceptron getMlpRawGA() { return mlpRawGA; }
+    }
+
+    // Data structure to hold evaluation results    
+    private static class EvaluationResult {
+        String algorithmName;
+        int correctMatches;
+        int total;
+        double successRate;
+        double evaluationTime;
+        
+        // For SVM results
+        int correctOneVsRest;
+        int correctOneVsOne;
+        double successRateOneVsRest;
+        double successRateOneVsOne;
+        boolean isSplitResult;
+        
+        EvaluationResult(String name, int correct, int total, double time) {
+            this.algorithmName = name;
+            this.correctMatches = correct;
+            this.total = total;
+            this.successRate = (correct / (double) total) * 100;
+            this.evaluationTime = time;
+            this.isSplitResult = false;
+        }
+        
+        EvaluationResult(String name, int correctOvR, int correctOvO, int total, double time) {
+            this.algorithmName = name;
+            this.correctOneVsRest = correctOvR;
+            this.correctOneVsOne = correctOvO;
+            this.total = total;
+            this.successRateOneVsRest = (correctOvR / (double) total) * 100;
+            this.successRateOneVsOne = (correctOvO / (double) total) * 100;
+            this.evaluationTime = time;
+            this.isSplitResult = true;
         }
     }
 
     // function to evaluate success rate of inputed algorithm
-    private static void evaluateAlgorithm(List<List<Integer>> dataSetA, List<List<Integer>> dataSetB, Algorithm algorithm, String label) {
+    private static EvaluationResult evaluateAlgorithmWithResults(List<List<Integer>> dataSetA, List<List<Integer>> dataSetB, Algorithm algorithm, String label) {
+        long startTime = System.nanoTime();
 
-            // Start the animation in a separate thread
-            Thread animationThread = new Thread(() -> showLoadingAnimation());
-            animationThread.start();
-            long startTime = System.nanoTime();
+        // Ensure SVM is trained before evaluation begins
+        if (algorithm instanceof SupportVectorMachine svm) {
+            if (!svm.isTrained()) {
+                svm.predict(dataSetA.get(0), dataSetA);
+            }
+        }
 
-            // Ensure SVM is trained before evaluation begins
-            if (algorithm instanceof SupportVectorMachine svm) {
-                if (!svm.isTrained()) {
-                    // Trigger training via a dummy prediction call on a training sample
-                    svm.predict(dataSetA.get(0), dataSetA);
+        if (algorithm instanceof MultiLayerPerceptron) {
+            System.out.println("\n--- " + label + " parameters used in calculation ---");
+            System.out.println(((MultiLayerPerceptron) algorithm).getParameters());
+        }
+
+        int correctMatches = 0;
+        int correctOneVsRest = 0;
+        int correctOneVsOne = 0;
+        boolean isSplitResult = false;
+
+        for (List<Integer> sample : dataSetB) {
+            int actualDigit = sample.get(BITMAP_SIZE);
+            Object result = algorithm.predict(sample, dataSetA);
+
+            if (result instanceof int[]) {
+                isSplitResult = true;
+                int[] preds = (int[]) result;
+                if (preds[0] == actualDigit) {
+                    correctOneVsRest++;
+                }
+                if (preds[1] == actualDigit) {
+                    correctOneVsOne++;
+                }
+            } else if (result instanceof Integer) {
+                if ((Integer) result == actualDigit) {
+                    correctMatches++;
                 }
             }
+        }
 
-            if (algorithm instanceof MultiLayerPerceptron) {
-                System.out.println("\n--- " + label + " parameters used in calculation ---");
-                System.out.println(((MultiLayerPerceptron) algorithm).getParameters());
-            }
+        long endTime = System.nanoTime();
+        double duration = (endTime - startTime) / 1_000_000_000.0;
+        int total = dataSetB.size();
 
-            int correctMatches = 0; // For single-prediction algorithms
-            int correctOneVsRest = 0; // For SVM's One-vs-Rest result
-            int correctOneVsOne = 0; // For SVM's One-vs-One result
-            boolean isSplitResult = false; // Flag to check if we received SVM's split result
-
-            // Iterate through all samples in the test set
-            for (List<Integer> sample : dataSetB) {
-                int actualDigit = sample.get(BITMAP_SIZE); // The correct answer
-                Object result = algorithm.predict(sample, dataSetA);
-
-                if (result instanceof int[]) {
-                    // Handle split result from SVM: [OneVsRest_Prediction, OneVsOne_Prediction]
-                    isSplitResult = true;
-                    int[] preds = (int[]) result;
-                    if (preds[0] == actualDigit) {
-                        correctOneVsRest++;
-                    }
-                    if (preds[1] == actualDigit) {
-                        correctOneVsOne++;
-                    }
-                } else if (result instanceof Integer) {
-                    // Handle single Integer prediction from other algorithms
-                    if ((Integer) result == actualDigit) {
-                        correctMatches++;
-                    }
-                }
-            }
-
-            // Stop the animation
-            animationThread.interrupt();
-            long endTime = System.nanoTime();
-            double duration = (endTime - startTime) / 1_000_000_000.0;
-            int total = dataSetB.size();
-
-            System.out.println("\n");
-            System.out.println("\n--- " + label + " Success Rate ---");
-            if (isSplitResult) {
-                // Print results for SVM variants
-                System.out.printf("   One-vs-Rest Correct: %d / %d%n", correctOneVsRest, total);
-                System.out.printf("   One-vs-Rest Success Rate: %.5f%%%n", (correctOneVsRest / (double) total) * 100);
-                System.out.printf("   One-vs-One Correct: %d / %d%n", correctOneVsOne, total);
-                System.out.printf("   One-vs-One Success Rate: %.5f%%%n", (correctOneVsOne / (double) total) * 100);
-            } else {
-                // Print results for single-prediction algorithms
-                System.out.printf("   Correct Matches: %d / %d%n", correctMatches, total);
-                System.out.printf("   Success Rate: %.5f%%%n", (correctMatches / (double) total) * 100);
-            }
+        System.out.println("\n--- " + label + " Success Rate ---");
+        if (isSplitResult) {
+            System.out.printf("   One-vs-Rest Correct: %d / %d%n", correctOneVsRest, total);
+            System.out.printf("   One-vs-Rest Success Rate: %.5f%%%n", (correctOneVsRest / (double) total) * 100);
+            System.out.printf("   One-vs-One Correct: %d / %d%n", correctOneVsOne, total);
+            System.out.printf("   One-vs-One Success Rate: %.5f%%%n", (correctOneVsOne / (double) total) * 100);
+            return new EvaluationResult(label, correctOneVsRest, correctOneVsOne, total, duration);
+        } else {
+            System.out.printf("   Correct Matches: %d / %d%n", correctMatches, total);
+            System.out.printf("   Success Rate: %.5f%%%n", (correctMatches / (double) total) * 100);
             System.out.println("   Evaluation Time: " + duration + " seconds");
             System.out.println("\n");
+            return new EvaluationResult(label, correctMatches, total, duration);
         }
+    }
 
-        private static void showLoadingAnimation() {
+    // private static void showLoadingAnimation() {
+    //     try {
+    //         String[] frames = { ".  ", ".. ", "..." };
+    //         String baseText = "evaluating";
+
+    //         while (true) {
+    //             for (String frame : frames) {
+    //                 System.out.print("\r" + baseText + frame);
+    //                 Thread.sleep(100000);
+    //             }
+    //         }
+    //     } catch (InterruptedException e) {
+    //         // When interrupted, animation thread exits gracefully.
+    //         Thread.currentThread().interrupt();
+            
+    //         // to move the cursor to a fresh line for the main thread's output.
+    //         System.out.print("\r" + "                              " + "\r");
+    //     }
+    // }
+
+    // Wrapper function to call evaluation without returning results
+    private static void evaluateAlgorithm(List<List<Integer>> dataSetA, List<List<Integer>> dataSetB, Algorithm algorithm, String label) {
+        evaluateAlgorithmWithResults(dataSetA, dataSetB, algorithm, label);
+    }
+
+    // ------------------------------------------------------------------------
+    // --- CSV READING AND PRINTING FUNCTIONS ---
+    // ------------------------------------------------------------------------
+
+    // Function to read the dataset from a CSV file
+    private static List<List<Integer>> readCsvFile(String dataSetFilePath) {
+        List<List<Integer>> dataSet = new ArrayList<>();
+        System.out.println("Reading CSV: " + dataSetFilePath);
+        try (Scanner scanner = new Scanner(new java.io.File(dataSetFilePath))) {
+            while (scanner.hasNextLine()) {
+                String line = scanner.nextLine();
+                String[] values = line.split(",");
+
+                if (values.length != ENTIRE_BITMAP_SIZE) {
+                    continue; // Skip malformed rows
+                }
+
+                List<Integer> currentRow = new ArrayList<>();
+                boolean error = false;
+
+                for (int row = 0; row < ENTIRE_BITMAP_SIZE; row++) {
+                    try {
+                        currentRow.add(Integer.parseInt(values[row].trim()));
+                    } catch (NumberFormatException e) {
+                        error = true;
+                        break;
+                    }
+                }
+                if (!error) {
+                    dataSet.add(currentRow);
+                }
+            }
+            return dataSet;
+        } catch (IOException e) {
+            System.err.println("Error reading file: " + e.getMessage());
+            return null;
+        }
+    }
+
+    private static void printDataSet(List<List<Integer>> dataSet) {
+        System.out.println("--- Entire Dataset ---");
+        for (int iteration = 0; iteration < dataSet.size(); iteration++) {
+            printRow(iteration, dataSet.get(iteration));
+        }
+    }
+
+    private static void printLimitedDataSet(List<List<Integer>> dataSet) {
+        System.out.println("--- First " + BITMAPS_TO_DISPLAY + " Samples ---");
+        for (int iteration = 0; iteration < Math.min(BITMAPS_TO_DISPLAY, dataSet.size()); iteration++) {
+            printRow(iteration, dataSet.get(iteration));
+        }
+    }
+
+    // Prints a single row's pixel values and digit label
+    private static void printRow(int digit, List<Integer> row) {
+        // The last element is the digit label
+        int digitLabel = row.get(BITMAP_SIZE);
+
+        System.out.print("Sample " + (digit + 1) + " (Digit: " + digitLabel + "): [");
+        // Print the 64 pixel values
+        for (int pixel = 0; pixel < BITMAP_SIZE; pixel++) {
+            System.out.print(row.get(pixel));
+            if (pixel < BITMAP_SIZE - 1) {
+                System.out.print(", ");
+            }
+        }
+        System.out.println("]");
+    }
+
+private static void PrintDataUserInterface(List<List<Integer>> dataSetA ,List<List<Integer>> dataSetB, Scanner scanner) {
+        boolean running = true;
+        while (running) {
+            System.out.println("\n=== Print Actions: ===");
+            System.out.println("1 -> Print entire A");
+            System.out.println("2 -> Print entire B");
+            System.out.println("3 -> Print subset A (First " + BITMAPS_TO_DISPLAY + ")");
+            System.out.println("4 -> Print subset B (First " + BITMAPS_TO_DISPLAY + ")");
+            System.out.println("0 -> Exit");
+            System.out.print("Choose bettween 0-4: ");
             try {
-                String[] frames = { ".  ", ".. ", "..." };
-                while (true) {
-                    for (String frame : frames) {
-                        System.out.print("\revaluating" + frame);
-                        Thread.sleep(500);
-                    }
-                    System.out.print("\r             ");
-                    Thread.sleep(500); // Clear the line temporarily
-                }
-            } catch (InterruptedException e) {
-                // When interrupted, animation thread exits gracefully
-                Thread.currentThread().interrupt();
-                System.out.print("\r"); // Clear the final animation frame
-            }
-        }
+                int choice = scanner.nextInt();
+                switch (choice) {
+                    case 1:
+                        if (dataSetA != null) {
+                            printDataSet(dataSetA);
+                        }  
+                        break;
 
-        // ------------------------------------------------------------------------
-        // --- CSV READING AND PRINTING FUNCTIONS ---
-        // ------------------------------------------------------------------------
+                    case 2:
+                        if (dataSetB != null) {
+                            printDataSet(dataSetB);
+                        }   
+                        break;
 
-        // Function to read the dataset from a CSV file
-        private static List<List<Integer>> readCsvFile(String dataSetFilePath) {
-            List<List<Integer>> dataSet = new ArrayList<>();
-            System.out.println("Reading CSV: " + dataSetFilePath);
-            try (Scanner scanner = new Scanner(new java.io.File(dataSetFilePath))) {
-                while (scanner.hasNextLine()) {
-                    String line = scanner.nextLine();
-                    String[] values = line.split(",");
-
-                    if (values.length != ENTIRE_BITMAP_SIZE) {
-                        continue; // Skip malformed rows
-                    }
-
-                    List<Integer> currentRow = new ArrayList<>();
-                    boolean error = false;
-
-                    for (int i = 0; i < ENTIRE_BITMAP_SIZE; i++) {
-                        try {
-                            currentRow.add(Integer.parseInt(values[i].trim()));
-                        } catch (NumberFormatException e) {
-                            error = true;
-                            break;
+                    case 3:
+                        if (dataSetA != null) {
+                            printLimitedDataSet(dataSetA);
                         }
-                    }
-                    if (!error) {
-                        dataSet.add(currentRow);
-                    }
+                        break;
+
+                    case 4:
+                        if (dataSetB != null) {
+                            printLimitedDataSet(dataSetB);
+                        }
+                        break;
+
+                    case 0:
+                        running = false;
+                        break;
+
+                    default:
+                        System.out.println(
+                                "\nInvalid choice. Please enter a number corresponding to available actions.");
                 }
-                return dataSet;
-            } catch (IOException e) {
-                System.err.println("Error reading file: " + e.getMessage());
-                return null;
+            } catch (Exception e) {
+                System.out.println("\nInvalid input. Please enter a number.");
+                scanner.nextLine(); // Consume the invalid input
             }
         }
+    }
 
-        private static void printDataSet(List<List<Integer>> dataSet) {
-            System.out.println("--- Entire Dataset ---");
-            for (int i = 0; i < dataSet.size(); i++) {
-                printRow(i, dataSet.get(i));
-            }
+    private static void UserInterface(List<List<Integer>> dataSetA, List<List<Integer>> dataSetB) {
+        Scanner scanner = new Scanner(System.in);
+        boolean running = true;
+
+        if (dataSetA == null || dataSetB == null) {
+            System.err.println("Cannot run program: Dataset loading failed.");
+            return;
         }
 
-        private static void printLimitedDataSet(List<List<Integer>> dataSet) {
-            System.out.println("--- First " + BITMAPS_TO_DISPLAY + " Samples ---");
-            for (int i = 0; i < Math.min(BITMAPS_TO_DISPLAY, dataSet.size()); i++) {
-                printRow(i, dataSet.get(i));
-            }
-        }
+        while (running) {
+            System.out.println("\n=== Actions: ===");
+            System.out.println("1 -> Print Options");
+            System.out.println("2 -> Euclidean Distance");
+            System.out.println("3 -> Multi Layer Perceptron");
+            System.out.println("4 -> Distance From Centroid");
+            System.out.println("5 -> Support Vector Machine");
+            System.out.println("6 -> K Nearest Neighbour");
+            System.out.println("7 -> Mahalanobis Distance");
+            System.out.println("8 -> All at Once");
+            System.out.println("9 -> Run All Algorithms in Order");
+            System.out.println("0 -> Exit");
+            System.out.print("Choose bettween 0-9: ");
 
-        // Prints a single row's pixel values and digit label
-        private static void printRow(int i, List<Integer> row) {
-            // The last element is the digit label
-            int digitLabel = row.get(BITMAP_SIZE);
+            try {
+                int choice = scanner.nextInt();
+                switch (choice) {
+                    case 1:
+                        PrintDataUserInterface(dataSetA, dataSetB, scanner);
+                        break;
 
-            System.out.print("Sample " + (i + 1) + " (Digit: " + digitLabel + "): [");
-            // Print the 64 pixel values
-            for (int j = 0; j < BITMAP_SIZE; j++) {
-                System.out.print(row.get(j));
-                if (j < BITMAP_SIZE - 1) {
-                    System.out.print(", ");
+                    case 2:
+                        evaluateAlgorithm(dataSetA, dataSetB, EUCLIDEAN_DISTANCE, "Euclidean Distance"); // train on A, test on B
+                        break;
+
+                    case 3:
+                        // MLP (raw pixels only)
+                        evaluateAlgorithm(dataSetA, dataSetB, new MultiLayerPerceptron(MultiLayerPerceptron.FeatureMode.RAW_ONLY), "MLP [Raw Only]");
+
+                        // MLP with all features
+                        evaluateAlgorithm(dataSetA, dataSetB, new MultiLayerPerceptron(MultiLayerPerceptron.FeatureMode.ALL), "MLP [All Features]");
+                        
+                        // MLP with centroid distances
+                        evaluateAlgorithm(dataSetA, dataSetB, new MultiLayerPerceptron(MultiLayerPerceptron.FeatureMode.CENTROID_ONLY), "MLP [Centroid Only]");
+                        
+                        // MLP with combined features
+                        evaluateAlgorithm(dataSetA, dataSetB, new MultiLayerPerceptron(MultiLayerPerceptron.FeatureMode.RAW_CENTROID), "MLP [Raw + Centroid]");
+                        
+                        // MLP with K-Means features
+                        evaluateAlgorithm(dataSetA, dataSetB, new MultiLayerPerceptron(MultiLayerPerceptron.FeatureMode.RAW_KMEANS), "MLP [Raw + KMeans]");
+                        
+                        // MLP with GA-weighted features
+                        evaluateAlgorithm(dataSetA, dataSetB, new MultiLayerPerceptron(MultiLayerPerceptron.FeatureMode.RAW_GA), "MLP [Raw + GA]");
+                        
+                        break;
+
+                    case 4:
+                        evaluateAlgorithm(dataSetA, dataSetB, DISTANCE_FROM_CENTROID, "Distance From Centroid"); // train on A, test on B
+                        break;
+
+                    case 5:
+                        // SVM Centroid Distances only
+                        evaluateAlgorithm(dataSetA, dataSetB, new SupportVectorMachine(SupportVectorMachine.FeatureMode.CENTROID_ONLY), "SVM [Centroid Only]"); // train on A, test on B
+
+                        // SVM with all features
+                        evaluateAlgorithm(dataSetA, dataSetB, new SupportVectorMachine(SupportVectorMachine.FeatureMode.ALL), "SVM [All Features]"); // train on A, test on B
+
+                        // SVM Simple Raw + Centroid mix
+                        evaluateAlgorithm(dataSetA, dataSetB, new SupportVectorMachine(SupportVectorMachine.FeatureMode.RAW_CENTROID), "SVM [Raw + Centroid]"); // train on A, test on B
+
+                        // SVM Raw + K-Means Distances
+                        evaluateAlgorithm(dataSetA, dataSetB, new SupportVectorMachine(SupportVectorMachine.FeatureMode.RAW_KMEANS), "SVM [Raw + KMeans]"); // train on A, test on B
+
+                        // SVM Raw + GA Weighted Pixels
+                        evaluateAlgorithm(dataSetA, dataSetB, new SupportVectorMachine(SupportVectorMachine.FeatureMode.RAW_GA), "SVM [Raw + GA]"); // train on A, test on B
+                        break;
+
+                    case 6:
+                        evaluateAlgorithm(dataSetA, dataSetB, K_NEAREST_NEIGHBOUR, "K Nearest Neighbour"); // train on A, test on B
+                        break;
+
+                    case 7:
+                        evaluateAlgorithm(dataSetA, dataSetB, MAHALANOBIS_DISTANCE, "Mahalanobis Distance"); // train on A, test on B
+                        break;
+
+                    case 8:
+                        evaluateAlgorithm(dataSetA, dataSetB, ALL_AT_ONCE, "All at Once"); // train on A, test on B
+                        break;
+                    
+                    case 9:
+                        runAllInOrder(dataSetA, dataSetB);
+                        break;
+
+                    case 0:
+                        System.out.println("\nExiting");
+                        running = false;
+                        break;
+
+                    default:
+                    System.out.println("\nInvalid choice. Please enter a number corresponding to available actions.");
                 }
-            }
-            System.out.println("]");
-        }
 
-    private static void PrintDataUserInterface(List<List<Integer>> dataSetA ,List<List<Integer>> dataSetB, Scanner scanner) {
-            boolean running = true;
-            while (running) {
-                System.out.println("\n=== Print Actions: ===");
-                System.out.println("1 -> Print entire A");
-                System.out.println("2 -> Print entire B");
-                System.out.println("3 -> Print subset A (First " + BITMAPS_TO_DISPLAY + ")");
-                System.out.println("4 -> Print subset B (First " + BITMAPS_TO_DISPLAY + ")");
-                System.out.println("0 -> Exit");
-                System.out.print("Choose bettween 0-4: ");
-                try {
-                    int choice = scanner.nextInt();
-                    switch (choice) {
-                        case 1:
-                            if (dataSetA != null) {
-                                printDataSet(dataSetA);
-                            }  
-                            break;
-
-                        case 2:
-                            if (dataSetB != null) {
-                                printDataSet(dataSetB);
-                            }   
-                            break;
-
-                        case 3:
-                            if (dataSetA != null) {
-                                printLimitedDataSet(dataSetA);
-                            }
-                            break;
-
-                        case 4:
-                            if (dataSetB != null) {
-                                printLimitedDataSet(dataSetB);
-                            }
-                            break;
-
-                        case 0:
-                            running = false;
-                            break;
-
-                        default:
-                            System.out.println(
-                                    "\nInvalid choice. Please enter a number corresponding to available actions.");
-                    }
-                } catch (Exception e) {
-                    System.out.println("\nInvalid input. Please enter a number.");
-                    scanner.nextLine(); // Consume the invalid input
-                }
+            } catch (Exception error) {
+                System.out.println("\nInvalid input. Please enter a number corresponding to available actions.");
+                scanner.nextLine(); // Clear the invalid input
             }
         }
 
-        private static void UserInterface(List<List<Integer>> dataSetA, List<List<Integer>> dataSetB) {
-            Scanner scanner = new Scanner(System.in);
-            boolean running = true;
+        scanner.close();
+    }
 
-            if (dataSetA == null || dataSetB == null) {
-                System.err.println("Cannot run program: Dataset loading failed.");
-                return;
+    // Modified runAllInOrder with averages calculation
+    private static void runAllInOrder(List<List<Integer>> dataSetA, List<List<Integer>> dataSetB) {
+        // Storage for results
+        java.util.Map<String, EvaluationResult> resultsAonB = new java.util.LinkedHashMap<>();
+        java.util.Map<String, EvaluationResult> resultsBonA = new java.util.LinkedHashMap<>();
+        
+        System.out.println("\n========================================");
+        System.out.println("Running All Algorithms in Sequence");
+        System.out.println("Trained on dataset A tested on dataset B");
+        System.out.println("========================================\n");
+        
+        resultsAonB.put("Euclidean Distance", evaluateAlgorithmWithResults(dataSetA, dataSetB, EUCLIDEAN_DISTANCE, "Euclidean Distance"));
+        resultsAonB.put("Distance From Centroid", evaluateAlgorithmWithResults(dataSetA, dataSetB, DISTANCE_FROM_CENTROID, "Distance From Centroid"));
+        resultsAonB.put("K Nearest Neighbour", evaluateAlgorithmWithResults(dataSetA, dataSetB, K_NEAREST_NEIGHBOUR, "K Nearest Neighbour"));
+        resultsAonB.put("Mahalanobis Distance", evaluateAlgorithmWithResults(dataSetA, dataSetB, MAHALANOBIS_DISTANCE, "Mahalanobis Distance"));
+        
+        AllAtOnce AllsetA = new AllAtOnce();
+        AllsetA.predict(dataSetA.get(0), dataSetA);
+        
+        System.out.println("\n--- Multi-Layer Perceptron Variants ---");
+        resultsAonB.put("MLP [Raw Only]", evaluateAlgorithmWithResults(dataSetA, dataSetB, AllsetA.getMlpRawOnly(), "MLP [Raw Only]"));
+        resultsAonB.put("MLP [Centroid Only]", evaluateAlgorithmWithResults(dataSetA, dataSetB, AllsetA.getMlpCentroidOnly(), "MLP [Centroid Only]"));
+        resultsAonB.put("MLP [Raw + Centroid]", evaluateAlgorithmWithResults(dataSetA, dataSetB, AllsetA.getMlpRawCentroid(), "MLP [Raw + Centroid]"));
+        resultsAonB.put("MLP [Raw + KMeans]", evaluateAlgorithmWithResults(dataSetA, dataSetB, AllsetA.getMlpRawKMeans(), "MLP [Raw + KMeans]"));
+        resultsAonB.put("MLP [Raw + GA]", evaluateAlgorithmWithResults(dataSetA, dataSetB, AllsetA.getMlpRawGA(), "MLP [Raw + GA]"));
+        resultsAonB.put("MLP [All Features]", evaluateAlgorithmWithResults(dataSetA, dataSetB, AllsetA.getMlpAll(), "MLP [All Features]"));
+        
+        System.out.println("\n--- Support Vector Machine Variants ---");
+        resultsAonB.put("SVM [Centroid Only]", evaluateAlgorithmWithResults(dataSetA, dataSetB, AllsetA.getSvmCentroidOnly(), "SVM [Centroid Only]"));
+        resultsAonB.put("SVM [Raw + Centroid]", evaluateAlgorithmWithResults(dataSetA, dataSetB, AllsetA.getSvmRawCentroid(), "SVM [Raw + Centroid]"));
+        resultsAonB.put("SVM [Raw + KMeans]", evaluateAlgorithmWithResults(dataSetA, dataSetB, AllsetA.getSvmRawKMeans(), "SVM [Raw + KMeans]"));
+        resultsAonB.put("SVM [Raw + GA]", evaluateAlgorithmWithResults(dataSetA, dataSetB, AllsetA.getSvmRawGA(), "SVM [Raw + GA]"));
+        resultsAonB.put("SVM [All Features]", evaluateAlgorithmWithResults(dataSetA, dataSetB, AllsetA.getSvmAll(), "SVM [All Features]"));
+        
+        System.out.println("\n--- All Algorithms at once (pick most voted class) ---");
+        resultsAonB.put("All at Once", evaluateAlgorithmWithResults(dataSetA, dataSetB, AllsetA, "All at Once"));
+        
+        // ========== SECOND RUN: B on A ==========
+        System.out.println("\n========================================");
+        System.out.println("Running All Algorithms in Sequence");
+        System.out.println("Trained on dataset B tested on dataset A");
+        System.out.println("========================================\n");
+        
+        resultsBonA.put("Euclidean Distance", evaluateAlgorithmWithResults(dataSetB, dataSetA, EUCLIDEAN_DISTANCE, "Euclidean Distance"));
+        resultsBonA.put("Distance From Centroid", evaluateAlgorithmWithResults(dataSetB, dataSetA, DISTANCE_FROM_CENTROID, "Distance From Centroid"));
+        resultsBonA.put("K Nearest Neighbour", evaluateAlgorithmWithResults(dataSetB, dataSetA, K_NEAREST_NEIGHBOUR, "K Nearest Neighbour"));
+        resultsBonA.put("Mahalanobis Distance", evaluateAlgorithmWithResults(dataSetB, dataSetA, MAHALANOBIS_DISTANCE, "Mahalanobis Distance"));
+        
+        AllAtOnce AllsetB = new AllAtOnce();
+        AllsetB.predict(dataSetB.get(0), dataSetB);
+        
+        System.out.println("\n--- Multi-Layer Perceptron Variants ---");
+        resultsBonA.put("MLP [Raw Only]", evaluateAlgorithmWithResults(dataSetB, dataSetA, AllsetB.getMlpRawOnly(), "MLP [Raw Only]"));
+        resultsBonA.put("MLP [Centroid Only]", evaluateAlgorithmWithResults(dataSetB, dataSetA, AllsetB.getMlpCentroidOnly(), "MLP [Centroid Only]"));
+        resultsBonA.put("MLP [Raw + Centroid]", evaluateAlgorithmWithResults(dataSetB, dataSetA, AllsetB.getMlpRawCentroid(), "MLP [Raw + Centroid]"));
+        resultsBonA.put("MLP [Raw + KMeans]", evaluateAlgorithmWithResults(dataSetB, dataSetA, AllsetB.getMlpRawKMeans(), "MLP [Raw + KMeans]"));
+        resultsBonA.put("MLP [Raw + GA]", evaluateAlgorithmWithResults(dataSetB, dataSetA, AllsetB.getMlpRawGA(), "MLP [Raw + GA]"));
+        resultsBonA.put("MLP [All Features]", evaluateAlgorithmWithResults(dataSetB, dataSetA, AllsetB.getMlpAll(), "MLP [All Features]"));
+        
+        System.out.println("\n--- Support Vector Machine Variants ---");
+        resultsBonA.put("SVM [Centroid Only]", evaluateAlgorithmWithResults(dataSetB, dataSetA, AllsetB.getSvmCentroidOnly(), "SVM [Centroid Only]"));
+        resultsBonA.put("SVM [Raw + Centroid]", evaluateAlgorithmWithResults(dataSetB, dataSetA, AllsetB.getSvmRawCentroid(), "SVM [Raw + Centroid]"));
+        resultsBonA.put("SVM [Raw + KMeans]", evaluateAlgorithmWithResults(dataSetB, dataSetA, AllsetB.getSvmRawKMeans(), "SVM [Raw + KMeans]"));
+        resultsBonA.put("SVM [Raw + GA]", evaluateAlgorithmWithResults(dataSetB, dataSetA, AllsetB.getSvmRawGA(), "SVM [Raw + GA]"));
+        resultsBonA.put("SVM [All Features]", evaluateAlgorithmWithResults(dataSetB, dataSetA, AllsetB.getSvmAll(), "SVM [All Features]"));
+        
+        System.out.println("\n--- All Algorithms at once (pick most voted class) ---");
+        resultsBonA.put("All at Once", evaluateAlgorithmWithResults(dataSetB, dataSetA, AllsetB, "All at Once"));
+        
+        // ========== CALCULATE AND PRINT AVERAGES ==========
+        System.out.println("\n========================================");
+        System.out.println("Averages between both runs:");
+        System.out.println("========================================\n");
+        
+        for (String algorithmName : resultsAonB.keySet()) {
+            EvaluationResult resultAonB = resultsAonB.get(algorithmName);
+            EvaluationResult resultBonA = resultsBonA.get(algorithmName);
+            
+            System.out.println("--- " + algorithmName + " ---");
+            
+            if (resultAonB.isSplitResult && resultBonA.isSplitResult) {
+                // Handle SVM results
+                double avgOneVsRest = (resultAonB.successRateOneVsRest + resultBonA.successRateOneVsRest) / 2.0;
+                double avgOneVsOne = (resultAonB.successRateOneVsOne + resultBonA.successRateOneVsOne) / 2.0;
+                double avgTime = (resultAonB.evaluationTime + resultBonA.evaluationTime) / 2.0;
+                
+                System.out.printf("   Average One-vs-Rest Success Rate: %.5f%%%n", avgOneVsRest);
+                System.out.printf("   Average One-vs-One Success Rate: %.5f%%%n", avgOneVsOne);
+                System.out.printf("   Average Evaluation Time: %.5f seconds%n", avgTime);
+            } else {
+                // Handle regular results
+                double avgSuccessRate = (resultAonB.successRate + resultBonA.successRate) / 2.0;
+                double avgTime = (resultAonB.evaluationTime + resultBonA.evaluationTime) / 2.0;
+                
+                System.out.printf("   A→B Success Rate: %.5f%%%n", resultAonB.successRate);
+                System.out.printf("   B→A Success Rate: %.5f%%%n", resultBonA.successRate);
+                System.out.printf("   Average Success Rate: %.5f%%%n", avgSuccessRate);
+                System.out.printf("   Average Evaluation Time: %.5f seconds%n", avgTime);
             }
-
-            while (running) {
-                System.out.println("\n=== Actions: ===");
-                System.out.println("1 -> Print Options");
-                System.out.println("2 -> Euclidean Distance");
-                System.out.println("3 -> Multi Layer Perceptron");
-                System.out.println("4 -> Distance From Centroid");
-                System.out.println("5 -> Support Vector Machine");
-                System.out.println("6 -> K Nearest Neighbour");
-                System.out.println("7 -> Mahalanobis Distance");
-                System.out.println("8 -> All at Once");
-                System.out.println("0 -> Exit");
-                System.out.print("Choose bettween 0-8: ");
-
-                try {
-                    int choice = scanner.nextInt();
-                    switch (choice) {
-                        case 1:
-                            PrintDataUserInterface(dataSetA, dataSetB, scanner);
-                            break;
-
-                        case 2:
-                            evaluateAlgorithm(dataSetA, dataSetB, EUCLIDEAN_DISTANCE, "Euclidean Distance"); // train on A, test on B
-                            break;
-
-                        case 3:
-                            // MLP (raw pixels only)
-                            evaluateAlgorithm(dataSetA, dataSetB, new MultiLayerPerceptron(MultiLayerPerceptron.FeatureMode.RAW_ONLY), "MLP [Raw Only]");
-
-                            // MLP with all features
-                            evaluateAlgorithm(dataSetA, dataSetB, new MultiLayerPerceptron(MultiLayerPerceptron.FeatureMode.ALL), "MLP [All Features]");
-                            
-                            // MLP with centroid distances
-                            evaluateAlgorithm(dataSetA, dataSetB, new MultiLayerPerceptron(MultiLayerPerceptron.FeatureMode.CENTROID_ONLY), "MLP [Centroid Only]");
-                            
-                            // MLP with combined features
-                            evaluateAlgorithm(dataSetA, dataSetB, new MultiLayerPerceptron(MultiLayerPerceptron.FeatureMode.RAW_CENTROID), "MLP [Raw + Centroid]");
-                            
-                            // MLP with K-Means features
-                            evaluateAlgorithm(dataSetA, dataSetB, new MultiLayerPerceptron(MultiLayerPerceptron.FeatureMode.RAW_KMEANS), "MLP [Raw + KMeans]");
-                            
-                            // MLP with GA-weighted features
-                            evaluateAlgorithm(dataSetA, dataSetB, new MultiLayerPerceptron(MultiLayerPerceptron.FeatureMode.RAW_GA), "MLP [Raw + GA]");
-                            
-                            break;
-
-                        case 4:
-                            evaluateAlgorithm(dataSetA, dataSetB, DISTANCE_FROM_CENTROID, "Distance From Centroid"); // train on A, test on B
-                            break;
-
-                        case 5:
-                            // SVM Centroid Distances only
-                            evaluateAlgorithm(dataSetA, dataSetB, new SupportVectorMachine(SupportVectorMachine.FeatureMode.CENTROID_ONLY), "SVM [Centroid Only]"); // train on A, test on B
-
-                            // SVM with all features
-                            evaluateAlgorithm(dataSetA, dataSetB, new SupportVectorMachine(SupportVectorMachine.FeatureMode.ALL), "SVM [All Features]"); // train on A, test on B
-
-                            // SVM Simple Raw + Centroid mix
-                            evaluateAlgorithm(dataSetA, dataSetB, new SupportVectorMachine(SupportVectorMachine.FeatureMode.RAW_CENTROID), "SVM [Raw + Centroid]"); // train on A, test on B
-
-                            // SVM Raw + K-Means Distances
-                            evaluateAlgorithm(dataSetA, dataSetB, new SupportVectorMachine(SupportVectorMachine.FeatureMode.RAW_KMEANS), "SVM [Raw + KMeans]"); // train on A, test on B
-
-                            // SVM Raw + GA Weighted Pixels
-                            evaluateAlgorithm(dataSetA, dataSetB, new SupportVectorMachine(SupportVectorMachine.FeatureMode.RAW_GA), "SVM [Raw + GA]"); // train on A, test on B
-                            break;
-
-                        case 6:
-                            evaluateAlgorithm(dataSetA, dataSetB, K_NEAREST_NEIGHBOUR, "K Nearest Neighbour"); // train on A, test on B
-                            break;
-
-                        case 7:
-                            evaluateAlgorithm(dataSetA, dataSetB, MAHALANOBIS_DISTANCE, "Mahalanobis Distance"); // train on A, test on B
-                            break;
-
-                        case 8:
-                            evaluateAlgorithm(dataSetA, dataSetB, ALL_AT_ONCE, "All at Once (Ensemble)"); // train on A, test on B
-                            break;
-
-                        case 0:
-                            System.out.println("\nExiting");
-                            running = false;
-                            break;
-
-                        default:
-                        System.out.println("\nInvalid choice. Please enter a number corresponding to available actions.");
-                    }
-
-                } catch (Exception error) {
-                    System.out.println("\nInvalid input. Please enter a number corresponding to available actions.");
-                    scanner.nextLine(); // Clear the invalid input
-                }
-            }
-
-            scanner.close();
+            System.out.println();
         }
+        
+        System.out.println("========================================");
+        System.out.println("Evaluation Complete!");
+        System.out.println("========================================\n");
+    }
 
-        public static void main(String[] args) {
-            // read datasets
-            List<List<Integer>> dataSetA = readCsvFile(DATASET_A_FILE_PATH);
-            List<List<Integer>> dataSetB = readCsvFile(DATASET_B_FILE_PATH);
+    public static void main(String[] args) {
+        // read datasets
+        List<List<Integer>> dataSetA = readCsvFile(DATASET_A_FILE_PATH);
+        List<List<Integer>> dataSetB = readCsvFile(DATASET_B_FILE_PATH);
 
-            // start user interface
-            UserInterface(dataSetA, dataSetB);
-        }
+        // start user interface
+        // UserInterface(dataSetA, dataSetB);
+        runAllInOrder(dataSetA, dataSetB);
+    }
 }
