@@ -16,7 +16,7 @@ public class CWmain {
     private static final int BITMAP_SIZE = ENTIRE_BITMAP_SIZE - 1; // Bitmap size minus bit representing digit
     private static final int BITMAPS_TO_DISPLAY = 20;
 
-    // placeholder Algorythm interface
+    // placeholder Algorithm interface
     public interface Algorithm {
         // sample -> row to predict, trainingSet -> dataset A (usually)
         Object predict(List<Integer> sample, List<List<Integer>> trainingSet);
@@ -41,18 +41,18 @@ public class CWmain {
 
         // Sum up pixel values for each class
         for (List<Integer> row : trainingSet) {
-            int instance = row.get(BITMAP_SIZE); // The class label (0-9)
-            countPerClass[instance]++;
-            for (int iteration = 0; iteration < BITMAP_SIZE; iteration++) {
-                sumPerClass[instance][iteration] += row.get(iteration);
+            int digitClass = row.get(BITMAP_SIZE); // The class label (0-9)
+            countPerClass[digitClass]++;
+            for (int featureIndex = 0; featureIndex < BITMAP_SIZE; featureIndex++) {
+                sumPerClass[digitClass][featureIndex] += row.get(featureIndex);
             }
         }
 
         // Calculate the average (centroid)
         for (int digit = 0; digit < 10; digit++) {
             if (countPerClass[digit] > 0) {
-                for (int iteration = 0; iteration < BITMAP_SIZE; iteration++) {
-                    centroids[digit][iteration] = sumPerClass[digit][iteration] / countPerClass[digit];
+                for (int featureIndex = 0; featureIndex < BITMAP_SIZE; featureIndex++) {
+                    centroids[digit][featureIndex] = sumPerClass[digit][featureIndex] / countPerClass[digit];
                 }
             }
         }
@@ -71,40 +71,40 @@ public class CWmain {
         double[][] centroids = new double[clusters][BITMAP_SIZE];
 
         // K-Means++ Initialization: selects initial centroids intelligently
-        List<Integer> first = trainingSet.get(random.nextInt(trainingSet.size()));
-        for (int iteration = 0; iteration < BITMAP_SIZE; iteration++) {
-            centroids[0][iteration] = first.get(iteration);
+        List<Integer> firstSample = trainingSet.get(random.nextInt(trainingSet.size()));
+        for (int featureIndex = 0; featureIndex < BITMAP_SIZE; featureIndex++) {
+            centroids[0][featureIndex] = firstSample.get(featureIndex);
         }
 
-        for (int cluster = 1; cluster < clusters; cluster++) {
-            double[] dist = new double[trainingSet.size()];
-            double total = 0;
+        for (int clusterIndex = 1; clusterIndex < clusters; clusterIndex++) {
+            double[] distances = new double[trainingSet.size()];
+            double totalDistance = 0;
             // Calculate distance to the nearest existing centroid for all samples
-            for (int i = 0; i < trainingSet.size(); i++) {
-                List<Integer> sample = trainingSet.get(i);
+            for (int sampleIndex = 0; sampleIndex < trainingSet.size(); sampleIndex++) {
+                List<Integer> sample = trainingSet.get(sampleIndex);
                 double minDistance = Double.MAX_VALUE;
-                for (int c = 0; c < cluster; c++) {
+                for (int existingCluster = 0; existingCluster < clusterIndex; existingCluster++) {
                     double distance = 0;
-                    for (int f = 0; f < BITMAP_SIZE; f++) {
-                        double diff = sample.get(f) - centroids[c][f];
+                    for (int featureIndex = 0; featureIndex < BITMAP_SIZE; featureIndex++) {
+                        double diff = sample.get(featureIndex) - centroids[existingCluster][featureIndex];
                         distance += diff * diff;
                     }
                     if (distance < minDistance) {
                         minDistance = distance;
                     }
                 }
-                dist[i] = minDistance;
-                total += minDistance; // Accumulate total distance squared
+                distances[sampleIndex] = minDistance;
+                totalDistance += minDistance; // Accumulate total distance squared
             }
             // Select new centroid weighted by distance
-            double randomValue = random.nextDouble() * total;
+            double randomValue = random.nextDouble() * totalDistance;
             double cumulativeDistance = 0;
-            for (int i = 0; i < dist.length; i++) {
-                cumulativeDistance += dist[i];
+            for (int sampleIndex = 0; sampleIndex < distances.length; sampleIndex++) {
+                cumulativeDistance += distances[sampleIndex];
                 if (cumulativeDistance >= randomValue) {
-                    List<Integer> picked = trainingSet.get(i);
-                    for (int j = 0; j < BITMAP_SIZE; j++) {
-                        centroids[cluster][j] = picked.get(j);
+                    List<Integer> pickedSample = trainingSet.get(sampleIndex);
+                    for (int featureIndex = 0; featureIndex < BITMAP_SIZE; featureIndex++) {
+                        centroids[clusterIndex][featureIndex] = pickedSample.get(featureIndex);
                     }
                     break;
                 }
@@ -112,66 +112,66 @@ public class CWmain {
         }
 
         // Iterative refinement (standard K-Means)
-        for (int iter = 0; iter < KMEANS_MAX_ITERATIONS; iter++) {
+        for (int iteration = 0; iteration < KMEANS_MAX_ITERATIONS; iteration++) {
             double[][] sums = new double[clusters][BITMAP_SIZE];
             int[] counts = new int[clusters];
 
             // Assign points to nearest centroid
-            for (List<Integer> s : trainingSet) {
-                int best = 0;
-                double bestDouble = Double.MAX_VALUE;
-                for (int c = 0; c < clusters; c++) {
-                    double d = 0;
-                    for (int f = 0; f < BITMAP_SIZE; f++) {
-                        double diff = s.get(f) - centroids[c][f];
-                        d += diff * diff;
+            for (List<Integer> sample : trainingSet) {
+                int bestCluster = 0;
+                double bestDistance = Double.MAX_VALUE;
+                for (int clusterIndex = 0; clusterIndex < clusters; clusterIndex++) {
+                    double distance = 0;
+                    for (int featureIndex = 0; featureIndex < BITMAP_SIZE; featureIndex++) {
+                        double diff = sample.get(featureIndex) - centroids[clusterIndex][featureIndex];
+                        distance += diff * diff;
                     }
-                    if (d < bestDouble) {
-                        bestDouble = d;
-                        best = c;
+                    if (distance < bestDistance) {
+                        bestDistance = distance;
+                        bestCluster = clusterIndex;
                     }
                 }
-                counts[best]++;
-                for (int f = 0; f < BITMAP_SIZE; f++)
-                    sums[best][f] += s.get(f);
+                counts[bestCluster]++;
+                for (int featureIndex = 0; featureIndex < BITMAP_SIZE; featureIndex++)
+                    sums[bestCluster][featureIndex] += sample.get(featureIndex);
             }
 
             // Recalculate centroids
-            boolean moved = false;
-            for (int c = 0; c < clusters; c++) {
-                if (counts[c] > 0) {
-                    for (int f = 0; f < BITMAP_SIZE; f++) {
-                        double newVal = sums[c][f] / counts[c];
-                        if (Math.abs(newVal - centroids[c][f]) > 1e-6) {
-                            moved = true;
+            boolean centroidsMoved = false;
+            for (int clusterIndex = 0; clusterIndex < clusters; clusterIndex++) {
+                if (counts[clusterIndex] > 0) {
+                    for (int featureIndex = 0; featureIndex < BITMAP_SIZE; featureIndex++) {
+                        double newValue = sums[clusterIndex][featureIndex] / counts[clusterIndex];
+                        if (Math.abs(newValue - centroids[clusterIndex][featureIndex]) > 1e-6) {
+                            centroidsMoved = true;
                         }
-                        centroids[c][f] = newVal;
+                        centroids[clusterIndex][featureIndex] = newValue;
                     }
                 }
             }
-            if (!moved) {
+            if (!centroidsMoved) {
                 break; // Optimization: stop if convergence reached
             }
         }
         return centroids;
     }
 
-    // function to compute Euclidean distances from a sample to the K-Means centroiEUCLIDEAN_DISTANCEds
+    // function to compute Euclidean distances from a sample to the K-Means centroids
     public static double[] computeKMeansDistances(List<Integer> sample, double[][] kmeansCentroids) {
         if (kmeansCentroids == null) {
             return new double[0];
         }
         int clusters = kmeansCentroids.length;
-        double[] dists = new double[clusters];
-        for (int c = 0; c < clusters; c++) {
+        double[] distances = new double[clusters];
+        for (int clusterIndex = 0; clusterIndex < clusters; clusterIndex++) {
             double sum = 0;
-            for (int f = 0; f < BITMAP_SIZE; f++) {
-                double diff = sample.get(f) - kmeansCentroids[c][f];
+            for (int featureIndex = 0; featureIndex < BITMAP_SIZE; featureIndex++) {
+                double diff = sample.get(featureIndex) - kmeansCentroids[clusterIndex][featureIndex];
                 sum += diff * diff;
             }
-            dists[c] = Math.sqrt(sum);
+            distances[clusterIndex] = Math.sqrt(sum);
         }
-        return dists;
+        return distances;
     }
 
     private static final int GA_POPULATION = 20;
@@ -183,10 +183,10 @@ public class CWmain {
         Random randomGenerator = new Random(42);
         List<double[]> population = new ArrayList<>();
         // Initialize population (random weights)
-        for (int i = 0; i < GA_POPULATION; i++) {
+        for (int individualIndex = 0; individualIndex < GA_POPULATION; individualIndex++) {
             double[] individual = new double[BITMAP_SIZE];
-            for (int f = 0; f < BITMAP_SIZE; f++)
-                individual[f] = randomGenerator.nextDouble();
+            for (int featureIndex = 0; featureIndex < BITMAP_SIZE; featureIndex++)
+                individual[featureIndex] = randomGenerator.nextDouble();
             population.add(individual);
         }
 
@@ -198,12 +198,12 @@ public class CWmain {
             // Evaluate fitness for all individuals
             double[] fitnessScores = new double[population.size()];
             int bestIndex = 0;
-            for (int i = 0; i < population.size(); i++) {
-                fitnessScores[i] = evaluateWeightFitness(population.get(i), trainingSet);
-                if (fitnessScores[i] > bestScore) {
-                    bestScore = fitnessScores[i];
-                    bestIndividual = population.get(i);
-                    bestIndex = i;
+            for (int individualIndex = 0; individualIndex < population.size(); individualIndex++) {
+                fitnessScores[individualIndex] = evaluateWeightFitness(population.get(individualIndex), trainingSet);
+                if (fitnessScores[individualIndex] > bestScore) {
+                    bestScore = fitnessScores[individualIndex];
+                    bestIndividual = population.get(individualIndex);
+                    bestIndex = individualIndex;
                 }
             }
             // Early stop if threshold reached
@@ -216,26 +216,26 @@ public class CWmain {
             nextGeneration.add(bestIndividual.clone()); // Keep best
             while (nextGeneration.size() < population.size()) {
                 // Randomly select two parents (excluding best)
-                int parent1Idx = randomGenerator.nextInt(population.size());
-                int parent2Idx = randomGenerator.nextInt(population.size());
-                if (parent1Idx == bestIndex) {
-                    parent1Idx = (parent1Idx + 1) % population.size();
+                int parent1Index = randomGenerator.nextInt(population.size());
+                int parent2Index = randomGenerator.nextInt(population.size());
+                if (parent1Index == bestIndex) {
+                    parent1Index = (parent1Index + 1) % population.size();
                 }
-                if (parent2Idx == bestIndex) {
-                    parent2Idx = (parent2Idx + 1) % population.size();
+                if (parent2Index == bestIndex) {
+                    parent2Index = (parent2Index + 1) % population.size();
                 }
-                double[] parent1 = population.get(parent1Idx);
-                double[] parent2 = population.get(parent2Idx);
+                double[] parent1 = population.get(parent1Index);
+                double[] parent2 = population.get(parent2Index);
                 // Crossover
                 double[] childIndividual = new double[BITMAP_SIZE];
-                for (int f = 0; f < BITMAP_SIZE; f++) {
-                    childIndividual[f] = randomGenerator.nextDouble() < 0.5 ? parent1[f] : parent2[f];
+                for (int featureIndex = 0; featureIndex < BITMAP_SIZE; featureIndex++) {
+                    childIndividual[featureIndex] = randomGenerator.nextDouble() < 0.5 ? parent1[featureIndex] : parent2[featureIndex];
                 }
                     
                 // Mutation
-                for (int f = 0; f < BITMAP_SIZE; f++) {
+                for (int featureIndex = 0; featureIndex < BITMAP_SIZE; featureIndex++) {
                     if (randomGenerator.nextDouble() < GA_MUTATION) {
-                         childIndividual[f] += randomGenerator.nextGaussian() * 0.1;
+                         childIndividual[featureIndex] += randomGenerator.nextGaussian() * 0.1;
                     }
                 }
                    
@@ -254,16 +254,16 @@ public class CWmain {
             int bestClass = 0;
             double bestDistance = Double.MAX_VALUE;
             // Classify sample using weighted distance to centroids
-            for (int c = 0; c < centroids.length; c++) {
+            for (int classIndex = 0; classIndex < centroids.length; classIndex++) {
                 double distance = 0;
-                for (int f = 0; f < BITMAP_SIZE; f++) {
+                for (int featureIndex = 0; featureIndex < BITMAP_SIZE; featureIndex++) {
                     // Apply weight before calculating difference
-                    double diff = (sample.get(f) * weights[f]) - centroids[c][f];
+                    double diff = (sample.get(featureIndex) * weights[featureIndex]) - centroids[classIndex][featureIndex];
                     distance += diff * diff;
                 }
                 if (distance < bestDistance) {
                     bestDistance = distance;
-                    bestClass = c;
+                    bestClass = classIndex;
                 }
             }
             if (bestClass == sample.get(BITMAP_SIZE)) {
@@ -276,23 +276,23 @@ public class CWmain {
     // Convert raw pixel values to a double vector
     public static double[] buildRawPixelsVector(List<Integer> sample) {
         double[] vector = new double[BITMAP_SIZE];
-        for (int i = 0; i < BITMAP_SIZE; i++) {
-             vector[i] = sample.get(i);
+        for (int pixelIndex = 0; pixelIndex < BITMAP_SIZE; pixelIndex++) {
+             vector[pixelIndex] = sample.get(pixelIndex);
         }
         return vector;
     }
 
     // Create a feature vector of distances to the 10 class centroids
     public static double[] buildCentroidDistanceVector(List<Integer> sample, double[][] centroids) {
-        int n = (centroids != null) ? centroids.length : 0;
-        double[] vector = new double[n];
-        for (int i = 0; i < n; i++) {
+        int numCentroids = (centroids != null) ? centroids.length : 0;
+        double[] vector = new double[numCentroids];
+        for (int centroidIndex = 0; centroidIndex < numCentroids; centroidIndex++) {
             double sum = 0;
-            for (int f = 0; f < BITMAP_SIZE; f++) {
-                double diff = sample.get(f) - centroids[i][f];
+            for (int featureIndex = 0; featureIndex < BITMAP_SIZE; featureIndex++) {
+                double diff = sample.get(featureIndex) - centroids[centroidIndex][featureIndex];
                 sum += diff * diff;
             }
-            vector[i] = Math.sqrt(sum);
+            vector[centroidIndex] = Math.sqrt(sum);
         }
         return vector;
     }
@@ -304,13 +304,13 @@ public class CWmain {
         }
         int clusters = kmeansCentroids.length;
         double[] vector = new double[clusters];
-        for (int i = 0; i < clusters; i++) {
+        for (int clusterIndex = 0; clusterIndex < clusters; clusterIndex++) {
             double sum = 0;
-            for (int j = 0; j < BITMAP_SIZE; j++) {
-                double diff = sample.get(j) - kmeansCentroids[i][j];
+            for (int featureIndex = 0; featureIndex < BITMAP_SIZE; featureIndex++) {
+                double diff = sample.get(featureIndex) - kmeansCentroids[clusterIndex][featureIndex];
                 sum += diff * diff;
             }
-            vector[i] = Math.sqrt(sum);
+            vector[clusterIndex] = Math.sqrt(sum);
         }
         return vector;
     }
@@ -318,45 +318,45 @@ public class CWmain {
     // Create a feature vector of raw pixels multiplied by the Genetic Algorithm weights
     public static double[] buildGAWeightedVector(List<Integer> sample, double[] gaWeights) {
         double[] vector = new double[BITMAP_SIZE];
-        for (int i = 0; i < BITMAP_SIZE; i++) {
-            vector[i] = sample.get(i) * (gaWeights != null ? gaWeights[i] : 1.0);
+        for (int pixelIndex = 0; pixelIndex < BITMAP_SIZE; pixelIndex++) {
+            vector[pixelIndex] = sample.get(pixelIndex) * (gaWeights != null ? gaWeights[pixelIndex] : 1.0);
         }
         return vector;
     }
 
     // Utility function to combine multiple feature vectors into one long vector
     public static double[] concatVectors(double[]... parts) {
-        int total = 0;
-        for (double[] p : parts) {
-            if (p != null) {
-                total += p.length;
+        int totalLength = 0;
+        for (double[] part : parts) {
+            if (part != null) {
+                totalLength += part.length;
             }
         }
-        double[] out = new double[total];
-        int pos = 0;
-        for (double[] p : parts) {
-            if (p == null) {
+        double[] output = new double[totalLength];
+        int position = 0;
+        for (double[] part : parts) {
+            if (part == null) {
                 continue;
             }
-            System.arraycopy(p, 0, out, pos, p.length);
-            pos += p.length;
+            System.arraycopy(part, 0, output, position, part.length);
+            position += part.length;
         }
-        return out;
+        return output;
     }
 
     // Combination of all feature vectors used in the 'ALL' mode of SVM
     private static double[] buildCombinedFeatureVector(List<Integer> sample, double[][] centroidCache, double[][] kmeansCache, double[] gaWeightsCache) {
         // Raw pixels
-        double[] raw = buildRawPixelsVector(sample);
+        double[] rawPixels = buildRawPixelsVector(sample);
         // Distances to class centroids
-        double[] cent = buildCentroidDistanceVector(sample, centroidCache);
+        double[] centroidDistances = buildCentroidDistanceVector(sample, centroidCache);
         // Distances to K-Means centroids
-        double[] km = buildKMeansDistanceVector(sample, kmeansCache);
+        double[] kmeansDistances = buildKMeansDistanceVector(sample, kmeansCache);
         // GA-weighted raw pixels
-        double[] ga = buildGAWeightedVector(sample, gaWeightsCache);
+        double[] gaWeighted = buildGAWeightedVector(sample, gaWeightsCache);
 
         // Concatenate all of them
-        return concatVectors(raw, cent, km, ga);
+        return concatVectors(rawPixels, centroidDistances, kmeansDistances, gaWeighted);
     }
 
     // ------------------------------------------------------------------------
@@ -375,8 +375,8 @@ public class CWmain {
             List<Integer> closest = null;
             for (List<Integer> candidate : trainingSet) {
                 double sum = 0;
-                for (int i = 0; i < BITMAP_SIZE; i++) {
-                    double distance = sample.get(i) - candidate.get(i);
+                for (int pixelIndex = 0; pixelIndex < BITMAP_SIZE; pixelIndex++) {
+                    double distance = sample.get(pixelIndex) - candidate.get(pixelIndex);
                     sum += distance * distance; // Squared Euclidean Distance gives better results then square root
                 }
                 if (sum < minDistance) {
@@ -443,9 +443,9 @@ public class CWmain {
                 train(trainingSet);
             }
             
-            double[] inputs = buildFeatureVector(sample); // create all beatmaps with selected features
+            double[] inputs = buildFeatureVector(sample); // create all bitmaps with selected features
 
-            // normalize bitmaps with exclusion oforiginal raw bitmap
+            // normalize bitmaps with exclusion of original raw bitmap
             if (mode != FeatureMode.RAW_ONLY){
                 inputs = normalizeFeatures(inputs);
             }
@@ -454,10 +454,10 @@ public class CWmain {
             
             int bestIndex = 0;
             double bestValue = outputs[0];
-            for (int i = 1; i < outputs.length; i++) {
-                if (outputs[i] > bestValue) {
-                    bestValue = outputs[i];
-                    bestIndex = i;
+            for (int outputIndex = 1; outputIndex < outputs.length; outputIndex++) {
+                if (outputs[outputIndex] > bestValue) {
+                    bestValue = outputs[outputIndex];
+                    bestIndex = outputIndex;
                 }
             }
             return Integer.valueOf(bestIndex);
@@ -470,7 +470,7 @@ public class CWmain {
             // Determine input size from feature vector
             inputSize = buildFeatureVector(trainingSet.get(0)).length;
             
-            // compute normalization of bitmaps with exclusion oforiginal raw bitmap
+            // compute normalization of bitmaps with exclusion of original raw bitmap
             if (mode != FeatureMode.RAW_ONLY){
                 computeNormalizationStats(trainingSet);
             }
@@ -491,21 +491,21 @@ public class CWmain {
                     double[] outputs = new double[CLASSES];
 
                     // Forward pass - hidden layer
-                    for (int h = 0; h < PERCEPTRONS; h++) {
-                        double sum = biasHidden[h];
-                        for (int i = 0; i < inputSize; i++) {
-                            sum += weightsInputHidden[h][i] * inputs[i];
+                    for (int hiddenIndex = 0; hiddenIndex < PERCEPTRONS; hiddenIndex++) {
+                        double sum = biasHidden[hiddenIndex];
+                        for (int inputIndex = 0; inputIndex < inputSize; inputIndex++) {
+                            sum += weightsInputHidden[hiddenIndex][inputIndex] * inputs[inputIndex];
                         }
-                        hidden[h] = sigmoid(sum);
+                        hidden[hiddenIndex] = sigmoid(sum);
                     }
 
                     // Forward pass - output layer
-                    for (int o = 0; o < CLASSES; o++) {
-                        double sum = biasOutput[o];
-                        for (int h = 0; h < PERCEPTRONS; h++) {
-                            sum += weightsHiddenOutput[o][h] * hidden[h];
+                    for (int outputIndex = 0; outputIndex < CLASSES; outputIndex++) {
+                        double sum = biasOutput[outputIndex];
+                        for (int hiddenIndex = 0; hiddenIndex < PERCEPTRONS; hiddenIndex++) {
+                            sum += weightsHiddenOutput[outputIndex][hiddenIndex] * hidden[hiddenIndex];
                         }
-                        outputs[o] = sigmoid(sum);
+                        outputs[outputIndex] = sigmoid(sum);
                     }
 
                     // Prepare target vector
@@ -514,35 +514,35 @@ public class CWmain {
 
                     // Backpropagation - output layer
                     double[] outputDeltas = new double[CLASSES];
-                    for (int o = 0; o < CLASSES; o++) {
-                        double error = target[o] - outputs[o];
-                        outputDeltas[o] = error * sigmoidDerivative(outputs[o]);
+                    for (int outputIndex = 0; outputIndex < CLASSES; outputIndex++) {
+                        double error = target[outputIndex] - outputs[outputIndex];
+                        outputDeltas[outputIndex] = error * sigmoidDerivative(outputs[outputIndex]);
                     }
 
                     // Backpropagation - hidden layer
                     double[] hiddenDeltas = new double[PERCEPTRONS];
-                    for (int h = 0; h < PERCEPTRONS; h++) {
+                    for (int hiddenIndex = 0; hiddenIndex < PERCEPTRONS; hiddenIndex++) {
                         double error = 0;
-                        for (int o = 0; o < CLASSES; o++) {
-                            error += outputDeltas[o] * weightsHiddenOutput[o][h];
+                        for (int outputIndex = 0; outputIndex < CLASSES; outputIndex++) {
+                            error += outputDeltas[outputIndex] * weightsHiddenOutput[outputIndex][hiddenIndex];
                         }
-                        hiddenDeltas[h] = error * sigmoidDerivative(hidden[h]);
+                        hiddenDeltas[hiddenIndex] = error * sigmoidDerivative(hidden[hiddenIndex]);
                     }
 
                     // Update weights - input to hidden
-                    for (int h = 0; h < PERCEPTRONS; h++) {
-                        for (int i = 0; i < inputSize; i++) {
-                            weightsInputHidden[h][i] += LEARNING_RATE * hiddenDeltas[h] * inputs[i];
+                    for (int hiddenIndex = 0; hiddenIndex < PERCEPTRONS; hiddenIndex++) {
+                        for (int inputIndex = 0; inputIndex < inputSize; inputIndex++) {
+                            weightsInputHidden[hiddenIndex][inputIndex] += LEARNING_RATE * hiddenDeltas[hiddenIndex] * inputs[inputIndex];
                         }
-                        biasHidden[h] += LEARNING_RATE * hiddenDeltas[h];
+                        biasHidden[hiddenIndex] += LEARNING_RATE * hiddenDeltas[hiddenIndex];
                     }
 
                     // Update weights - hidden to output
-                    for (int o = 0; o < CLASSES; o++) {
-                        for (int h = 0; h < PERCEPTRONS; h++) {
-                            weightsHiddenOutput[o][h] += LEARNING_RATE * outputDeltas[o] * hidden[h];
+                    for (int outputIndex = 0; outputIndex < CLASSES; outputIndex++) {
+                        for (int hiddenIndex = 0; hiddenIndex < PERCEPTRONS; hiddenIndex++) {
+                            weightsHiddenOutput[outputIndex][hiddenIndex] += LEARNING_RATE * outputDeltas[outputIndex] * hidden[hiddenIndex];
                         }
-                        biasOutput[o] += LEARNING_RATE * outputDeltas[o];
+                        biasOutput[outputIndex] += LEARNING_RATE * outputDeltas[outputIndex];
                     }
                 }
             }
@@ -570,19 +570,19 @@ public class CWmain {
 
         // Build feature vector based on selected mode
         private double[] buildFeatureVector(List<Integer> sample) {
-            double[] raw = buildRawPixelsVector(sample);
+            double[] rawPixels = buildRawPixelsVector(sample);
 
             switch (mode) {
                 case RAW_ONLY:
-                    return raw;
+                    return rawPixels;
                 case CENTROID_ONLY:
                     return buildCentroidDistanceVector(sample, centroidCache);
                 case RAW_CENTROID:
-                    return concatVectors(raw, buildCentroidDistanceVector(sample, centroidCache));
+                    return concatVectors(rawPixels, buildCentroidDistanceVector(sample, centroidCache));
                 case RAW_KMEANS:
-                    return concatVectors(raw, buildKMeansDistanceVector(sample, kmeansCentroidCache));
+                    return concatVectors(rawPixels, buildKMeansDistanceVector(sample, kmeansCentroidCache));
                 case RAW_GA:
-                    return concatVectors(raw, buildGAWeightedVector(sample, gaWeightsCache));
+                    return concatVectors(rawPixels, buildGAWeightedVector(sample, gaWeightsCache));
                 case ALL:
                 default:
                     return buildCombinedFeatureVector(sample, centroidCache, kmeansCentroidCache, gaWeightsCache);
@@ -597,27 +597,27 @@ public class CWmain {
             // Compute mean
             for (List<Integer> row : trainingSet) {
                 double[] features = buildFeatureVector(row);
-                for (int i = 0; i < inputSize; i++) {
-                    featureMean[i] += features[i];
+                for (int featureIndex = 0; featureIndex < inputSize; featureIndex++) {
+                    featureMean[featureIndex] += features[featureIndex];
                 }
             }
-            for (int i = 0; i < inputSize; i++) {
-                featureMean[i] /= trainingSet.size();
+            for (int featureIndex = 0; featureIndex < inputSize; featureIndex++) {
+                featureMean[featureIndex] /= trainingSet.size();
             }
             
             // Compute standard deviation
             for (List<Integer> row : trainingSet) {
                 double[] features = buildFeatureVector(row);
-                for (int i = 0; i < inputSize; i++) {
-                    double diff = features[i] - featureMean[i];
-                    featureStd[i] += diff * diff;
+                for (int featureIndex = 0; featureIndex < inputSize; featureIndex++) {
+                    double diff = features[featureIndex] - featureMean[featureIndex];
+                    featureStd[featureIndex] += diff * diff;
                 }
             }
-            for (int i = 0; i < inputSize; i++) {
-                featureStd[i] = Math.sqrt(featureStd[i] / trainingSet.size());
+            for (int featureIndex = 0; featureIndex < inputSize; featureIndex++) {
+                featureStd[featureIndex] = Math.sqrt(featureStd[featureIndex] / trainingSet.size());
                 // Prevent division by zero
-                if (featureStd[i] < 1e-9) {
-                    featureStd[i] = 1.0;
+                if (featureStd[featureIndex] < 1e-9) {
+                    featureStd[featureIndex] = 1.0;
                 }
             }
         }
@@ -625,8 +625,8 @@ public class CWmain {
         // Normalize features using computed statistics
         private double[] normalizeFeatures(double[] features) {
             double[] normalized = new double[features.length];
-            for (int i = 0; i < features.length; i++) {
-                normalized[i] = (features[i] - featureMean[i]) / featureStd[i];
+            for (int featureIndex = 0; featureIndex < features.length; featureIndex++) {
+                normalized[featureIndex] = (features[featureIndex] - featureMean[featureIndex]) / featureStd[featureIndex];
             }
             return normalized;
         }
@@ -639,37 +639,37 @@ public class CWmain {
             Random random = new Random(RANDOM_SEED);
 
             double range = 0.1;
-            for (int h = 0; h < PERCEPTRONS; h++) {
-                biasHidden[h] = (random.nextDouble() * 2 - 1) * range;
-                for (int i = 0; i < inputSize; i++) {
-                    weightsInputHidden[h][i] = (random.nextDouble() * 2 - 1) * range;
+            for (int hiddenIndex = 0; hiddenIndex < PERCEPTRONS; hiddenIndex++) {
+                biasHidden[hiddenIndex] = (random.nextDouble() * 2 - 1) * range;
+                for (int inputIndex = 0; inputIndex < inputSize; inputIndex++) {
+                    weightsInputHidden[hiddenIndex][inputIndex] = (random.nextDouble() * 2 - 1) * range;
                 }
             }
-            for (int o = 0; o < CLASSES; o++) {
-                biasOutput[o] = (random.nextDouble() * 2 - 1) * range;
-                for (int h = 0; h < PERCEPTRONS; h++) {
-                    weightsHiddenOutput[o][h] = (random.nextDouble() * 2 - 1) * range;
+            for (int outputIndex = 0; outputIndex < CLASSES; outputIndex++) {
+                biasOutput[outputIndex] = (random.nextDouble() * 2 - 1) * range;
+                for (int hiddenIndex = 0; hiddenIndex < PERCEPTRONS; hiddenIndex++) {
+                    weightsHiddenOutput[outputIndex][hiddenIndex] = (random.nextDouble() * 2 - 1) * range;
                 }
             }
         }
 
         private double[] forward(double[] inputs) {
             double[] hidden = new double[PERCEPTRONS];
-            for (int h = 0; h < PERCEPTRONS; h++) {
-                double sum = biasHidden[h];
-                for (int i = 0; i < inputSize; i++) {
-                    sum += weightsInputHidden[h][i] * inputs[i];
+            for (int hiddenIndex = 0; hiddenIndex < PERCEPTRONS; hiddenIndex++) {
+                double sum = biasHidden[hiddenIndex];
+                for (int inputIndex = 0; inputIndex < inputSize; inputIndex++) {
+                    sum += weightsInputHidden[hiddenIndex][inputIndex] * inputs[inputIndex];
                 }
-                hidden[h] = sigmoid(sum);
+                hidden[hiddenIndex] = sigmoid(sum);
             }
 
             double[] outputs = new double[CLASSES];
-            for (int o = 0; o < CLASSES; o++) {
-                double sum = biasOutput[o];
-                for (int h = 0; h < PERCEPTRONS; h++) {
-                    sum += weightsHiddenOutput[o][h] * hidden[h];
+            for (int outputIndex = 0; outputIndex < CLASSES; outputIndex++) {
+                double sum = biasOutput[outputIndex];
+                for (int hiddenIndex = 0; hiddenIndex < PERCEPTRONS; hiddenIndex++) {
+                    sum += weightsHiddenOutput[outputIndex][hiddenIndex] * hidden[hiddenIndex];
                 }
-                outputs[o] = sigmoid(sum);
+                outputs[outputIndex] = sigmoid(sum);
             }
             return outputs;
         }
@@ -699,8 +699,8 @@ public class CWmain {
             // Compare the sample to each centroid
             for (int digit = 0; digit < 10; digit++) {
                 double sum = 0;
-                for (int i = 0; i < BITMAP_SIZE; i++) {
-                    double diff = sample.get(i) - centroids[digit][i];
+                for (int pixelIndex = 0; pixelIndex < BITMAP_SIZE; pixelIndex++) {
+                    double diff = sample.get(pixelIndex) - centroids[digit][pixelIndex];
                     sum += diff * diff; // Squared Euclidean Distance gives better results then square root
                 }
                 double distance = Math.sqrt(sum);
@@ -790,21 +790,21 @@ public class CWmain {
                 gaWeightsCache = evolveGeneticWeights(trainingSet);
             }
 
-            int n = trainingSet.size();
+            int numSamples = trainingSet.size();
             // Projects all samples to the feature space to build the training matrix
             double[] firstSample = projectToFeatureSpace(trainingSet.get(0));
             int featureSize = firstSample.length;
 
-            double[][] featureMatrix = new double[n][featureSize];
-            int[] labels = new int[n];
+            double[][] featureMatrix = new double[numSamples][featureSize];
+            int[] labels = new int[numSamples];
 
-            for (int i = 0; i < n; i++) {
-                List<Integer> row = trainingSet.get(i);
-                featureMatrix[i] = projectToFeatureSpace(row);
-                labels[i] = row.get(BITMAP_SIZE);
+            for (int sampleIndex = 0; sampleIndex < numSamples; sampleIndex++) {
+                List<Integer> row = trainingSet.get(sampleIndex);
+                featureMatrix[sampleIndex] = projectToFeatureSpace(row);
+                labels[sampleIndex] = row.get(BITMAP_SIZE);
             }
 
-            // calculate mean/standard deviation and scale the training data for normalization purpouses 
+            // calculate mean/standard deviation and scale the training data for normalization purposes 
             // Xnormalized = (X - mean) / standard deviation
             FeatureNormalizer normalizer = new FeatureNormalizer(featureSize);
             normalizer.fitAndTransform(featureMatrix); // Scales the training data in place
@@ -814,18 +814,18 @@ public class CWmain {
 
             // Train One-vs-One (45 binary classifiers: 0 vs 1, 0 vs 2, ..., 8 vs 9)
             this.oneVsOneModels = new ArrayList<>();
-            for (int i = 0; i < CLASSES; i++) {
-                for (int j = i + 1; j < CLASSES; j++) {
+            for (int classA = 0; classA < CLASSES; classA++) {
+                for (int classB = classA + 1; classB < CLASSES; classB++) {
                     List<Integer> pairIndices = new ArrayList<>();
-                    for (int k = 0; k < n; k++) {
-                        if (labels[k] == i || labels[k] == j) {
-                            pairIndices.add(k);
+                    for (int sampleIndex = 0; sampleIndex < numSamples; sampleIndex++) {
+                        if (labels[sampleIndex] == classA || labels[sampleIndex] == classB) {
+                            pairIndices.add(sampleIndex);
                         }
                     }
 
                     if (!pairIndices.isEmpty()) {
                         // Train a binary classifier for this specific pair
-                        Model pairModel = trainLinearPerceptron(featureMatrix, labels, pairIndices, i, j);
+                        Model pairModel = trainLinearPerceptron(featureMatrix, labels, pairIndices, classA, classB);
                         oneVsOneModels.add(pairModel);
                     }
                 }
@@ -834,17 +834,17 @@ public class CWmain {
 
         // maps the input sample to the selected bitmap / feature vector size
         private double[] projectToFeatureSpace(List<Integer> sample) {
-            double[] raw = buildRawPixelsVector(sample);
+            double[] rawPixels = buildRawPixelsVector(sample);
 
             switch (mode) {
                 case CENTROID_ONLY:
                     return buildCentroidDistanceVector(sample, centroidCache);
                 case RAW_CENTROID:
-                    return concatVectors(raw, buildCentroidDistanceVector(sample, centroidCache));
+                    return concatVectors(rawPixels, buildCentroidDistanceVector(sample, centroidCache));
                 case RAW_KMEANS:
-                    return concatVectors(raw, buildKMeansDistanceVector(sample, kmeansCentroidCache));
+                    return concatVectors(rawPixels, buildKMeansDistanceVector(sample, kmeansCentroidCache));
                 case RAW_GA:
-                    return concatVectors(raw, buildGAWeightedVector(sample, gaWeightsCache));
+                    return concatVectors(rawPixels, buildGAWeightedVector(sample, gaWeightsCache));
                 case ALL:
                 default:
                     return buildCombinedFeatureVector(sample, centroidCache, kmeansCentroidCache, gaWeightsCache);
@@ -866,10 +866,10 @@ public class CWmain {
             // Select the class with the maximum number of votes
             int bestClass = 0;
             int maxVotes = -1;
-            for (int c = 0; c < CLASSES; c++) {
-                if (votes[c] > maxVotes) {
-                    maxVotes = votes[c];
-                    bestClass = c;
+            for (int classIndex = 0; classIndex < CLASSES; classIndex++) {
+                if (votes[classIndex] > maxVotes) {
+                    maxVotes = votes[classIndex];
+                    bestClass = classIndex;
                 }
             }
             return bestClass;
@@ -879,15 +879,15 @@ public class CWmain {
         private Model trainPerceptronModel(double[][] features, int[] labels, FeatureNormalizer normalizer) {
             int featureSize = features[0].length;
             Model model = new Model(CLASSES, featureSize, normalizer);
-            int n = features.length;
+            int numSamples = features.length;
             List<Integer> indices = new ArrayList<>();
-            for (int i = 0; i < n; i++) {
-                indices.add(i);
+            for (int sampleIndex = 0; sampleIndex < numSamples; sampleIndex++) {
+                indices.add(sampleIndex);
             }
             Random rand = new Random(RANDOM_SEED);
 
             for (int epoch = 0; epoch < MAX_EPOCHS; epoch++) {
-                Collections.shuffle(indices, rand); // Shuffle data for stochastic training (suffling the dataset to avoid bias)
+                Collections.shuffle(indices, rand); // Shuffle data for stochastic training (shuffling the dataset to avoid bias)
                 int mistakes = 0;
                 for (int idx : indices) {
                     double[] sample = features[idx];
@@ -897,13 +897,13 @@ public class CWmain {
                     // Find the best scoring rival class (the one predicted incorrectly)
                     int bestRival = -1;
                     double bestRivalScore = Double.NEGATIVE_INFINITY;
-                    for (int c = 0; c < CLASSES; c++) {
-                        if (c == target) {
+                    for (int classIndex = 0; classIndex < CLASSES; classIndex++) {
+                        if (classIndex == target) {
                             continue;
                         }
-                        if (res.scores[c] > bestRivalScore) {
-                            bestRivalScore = res.scores[c];
-                            bestRival = c;
+                        if (res.scores[classIndex] > bestRivalScore) {
+                            bestRivalScore = res.scores[classIndex];
+                            bestRival = classIndex;
                         }
                     }
 
@@ -940,15 +940,15 @@ public class CWmain {
                 boolean updated = false;
                 for (int idx : indices) {
                     // Target label is +1 for classA, -1 for classB
-                    int y = (labels[idx] == classA) ? 1 : -1;
+                    int targetLabel = (labels[idx] == classA) ? 1 : -1;
                     double score = model.pointInFeatureSpace(0, features[idx]) + model.bias[0];
 
                     // Perceptron learning rule
-                    if (y * score <= MARGIN) {
-                        for (int feature = 0; feature < featureSize; feature++) {
-                            model.weights[0][feature] += LEARNING_RATE * y * features[idx][feature];
+                    if (targetLabel * score <= MARGIN) {
+                        for (int featureIndex = 0; featureIndex < featureSize; featureIndex++) {
+                            model.weights[0][featureIndex] += LEARNING_RATE * targetLabel * features[idx][featureIndex];
                         }
-                        model.bias[0] += LEARNING_RATE * y;
+                        model.bias[0] += LEARNING_RATE * targetLabel;
                         updated = true;
                     }
                     model.accumulateAverages();
@@ -984,12 +984,12 @@ public class CWmain {
             PredictionResult computeScores(double[] features) {
                 double[] scores = new double[weights.length];
                 int predicted = 0;
-                double max = Double.NEGATIVE_INFINITY;
-                for (int class = 0; class < weights.length; class++) {
-                    scores[class] = pointInFeatureSpace(class, features) + bias[class];
-                    if (scores[class] > max) {
-                        max = scores[class];
-                        predicted = class;
+                double maxScore = Double.NEGATIVE_INFINITY;
+                for (int classIndex = 0; classIndex < weights.length; classIndex++) {
+                    scores[classIndex] = pointInFeatureSpace(classIndex, features) + bias[classIndex];
+                    if (scores[classIndex] > maxScore) {
+                        maxScore = scores[classIndex];
+                        predicted = classIndex;
                     }
                 }
                 return new PredictionResult(predicted, scores);
@@ -1004,8 +1004,8 @@ public class CWmain {
             double pointInFeatureSpace(int classIdx, double[] features) {
                 double sum = 0;
 
-                for (int point = 0; point < features.length; point++) {
-                    sum += weights[classIdx][point] * features[point];
+                for (int featureIndex = 0; featureIndex < features.length; featureIndex++) {
+                    sum += weights[classIdx][featureIndex] * features[featureIndex];
                 }
 
                 return sum;
@@ -1013,8 +1013,8 @@ public class CWmain {
 
             // Applies the learning update to the weights and bias for a given class
             void update(double[] features, int classIdx, double direction) {
-                for (int i = 0; i < features.length; i++) {
-                    weights[classIdx][i] += LEARNING_RATE * direction * features[i];
+                for (int featureIndex = 0; featureIndex < features.length; featureIndex++) {
+                    weights[classIdx][featureIndex] += LEARNING_RATE * direction * features[featureIndex];
                 }
                 bias[classIdx] += LEARNING_RATE * direction;
             }
@@ -1022,11 +1022,11 @@ public class CWmain {
             // Adds current weights/biases to the running sums for averaging
             void accumulateAverages() {
                 steps++;
-                for (int classIdx = 0; classIdx < weights.length; classIdx++) {
-                    for (int f = 0; f < weights[0].length; f++) {
-                        weightSums[classIdx][f] += weights[classIdx][f];
+                for (int classIndex = 0; classIndex < weights.length; classIndex++) {
+                    for (int featureIndex = 0; featureIndex < weights[0].length; featureIndex++) {
+                        weightSums[classIndex][featureIndex] += weights[classIndex][featureIndex];
                     }
-                    biasSums[classIdx] += bias[classIdx];
+                    biasSums[classIndex] += bias[classIndex];
                 }
             }
 
@@ -1035,11 +1035,11 @@ public class CWmain {
                 if (steps == 0) {
                     return;
                 }
-                for (int c = 0; c < weights.length; c++) {
-                    for (int f = 0; f < weights[0].length; f++) {
-                        weights[c][f] = weightSums[c][f] / steps;
+                for (int classIndex = 0; classIndex < weights.length; classIndex++) {
+                    for (int featureIndex = 0; featureIndex < weights[0].length; featureIndex++) {
+                        weights[classIndex][featureIndex] = weightSums[classIndex][featureIndex] / steps;
                     }
-                    bias[c] = biasSums[c] / steps;
+                    bias[classIndex] = biasSums[classIndex] / steps;
                 }
             }
         }
@@ -1063,32 +1063,32 @@ public class CWmain {
                 }
 
                 // Calculates Mean and Standard Deviation (Fit)
-                for (int feature = 0; feature < featureSize; feature++) {
-                    double sum = 0, sumSq = 0;
+                for (int featureIndex = 0; featureIndex < featureSize; featureIndex++) {
+                    double sum = 0, sumSquared = 0;
                     for (double[] row : matrix) {
-                        sum += row[feature];
-                        sumSq += row[feature] * row[feature];
+                        sum += row[featureIndex];
+                        sumSquared += row[featureIndex] * row[featureIndex];
                     }
-                    mean[feature] = sum / matrix.length;
-                    double var = (sumSq / matrix.length) - (mean[feature] * mean[feature]);
+                    mean[featureIndex] = sum / matrix.length;
+                    double variance = (sumSquared / matrix.length) - (mean[featureIndex] * mean[featureIndex]);
                     // Use a small epsilon to prevent division by zero for constant features
-                    std[feature] = Math.max(Math.sqrt(Math.max(var, 0)), 1e-9);
+                    std[featureIndex] = Math.max(Math.sqrt(Math.max(variance, 0)), 1e-9);
                 }
 
                 // Apply Normalization (Transform)
                 for (double[] row : matrix) {
-                    for (int feature = 0; feature < featureSize; feature++) {
-                        row[feature] = (row[feature] - mean[feature]) / std[feature];
+                    for (int featureIndex = 0; featureIndex < featureSize; featureIndex++) {
+                        row[featureIndex] = (row[featureIndex] - mean[featureIndex]) / std[featureIndex];
                     }
                 }
             }
 
             // Applies normalization to a single input vector using pre-calculated stats
             double[] normalize(double[] vector) {
-                double[] out = new double[featureSize];
-                for (int feature = 0; feature < featureSize; feature++)
-                    out[feature] = (vector[feature] - mean[feature]) / std[feature];
-                return out;
+                double[] output = new double[featureSize];
+                for (int featureIndex = 0; featureIndex < featureSize; featureIndex++)
+                    output[featureIndex] = (vector[featureIndex] - mean[featureIndex]) / std[featureIndex];
+                return output;
             }
         }
 
@@ -1114,8 +1114,8 @@ public class CWmain {
 
             for (List<Integer> candidate : trainingSet) {
                 double distance = 0;
-                for (int row = 0; row < BITMAP_SIZE; row++) {
-                    double diff = sample.get(row) - candidate.get(row);
+                for (int pixelIndex = 0; pixelIndex < BITMAP_SIZE; pixelIndex++) {
+                    double diff = sample.get(pixelIndex) - candidate.get(pixelIndex);
                     distance += diff * diff; // Squared Euclidean Distance gives better results than square root
                 }
 
@@ -1173,8 +1173,8 @@ public class CWmain {
             }
 
             double[] sampleVector = new double[featureCount];
-            for (int i = 0; i < featureCount; i++) {
-                sampleVector[i] = sample.get(i);
+            for (int featureIndex = 0; featureIndex < featureCount; featureIndex++) {
+                sampleVector[featureIndex] = sample.get(featureIndex);
             }
 
             // Calculate Mahalanobis distance to each class centroid
@@ -1187,8 +1187,8 @@ public class CWmain {
 
                 // Difference vector: Sample - Centroid
                 double[] diff = new double[featureCount];
-                for (int i = 0; i < featureCount; i++) {
-                    diff[i] = sampleVector[i] - centroids[digit][i];
+                for (int featureIndex = 0; featureIndex < featureCount; featureIndex++) {
+                    diff[featureIndex] = sampleVector[featureIndex] - centroids[digit][featureIndex];
                 }
 
                 // Mahalanobis Distance: sqrt( diff^T * Covariance^-1 * diff )
@@ -1205,13 +1205,13 @@ public class CWmain {
         private static double[] computeFeatureMeans(List<List<Integer>> trainingSet, int featureCount) {
             double[] means = new double[featureCount];
             for (List<Integer> row : trainingSet) {
-                for (int i = 0; i < featureCount; i++) {
-                    means[i] += row.get(i);
+                for (int featureIndex = 0; featureIndex < featureCount; featureIndex++) {
+                    means[featureIndex] += row.get(featureIndex);
                 }
             }
 
-            for (int i = 0; i < featureCount; i++) {
-                means[i] /= trainingSet.size();
+            for (int featureIndex = 0; featureIndex < featureCount; featureIndex++) {
+                means[featureIndex] /= trainingSet.size();
             }
             return means;
         }
@@ -1224,83 +1224,83 @@ public class CWmain {
             }
 
             for (List<Integer> row : trainingSet) {
-                for (int i = 0; i < featureCount; i++) {
-                    double diffI = row.get(i) - means[i];
-                    for (int j = 0; j < featureCount; j++) {
-                        double diffJ = row.get(j) - means[j];
-                        covariance[i][j] += diffI * diffJ; // Sum of outer products
+                for (int rowFeatureIndex = 0; rowFeatureIndex < featureCount; rowFeatureIndex++) {
+                    double diffRow = row.get(rowFeatureIndex) - means[rowFeatureIndex];
+                    for (int colFeatureIndex = 0; colFeatureIndex < featureCount; colFeatureIndex++) {
+                        double diffCol = row.get(colFeatureIndex) - means[colFeatureIndex];
+                        covariance[rowFeatureIndex][colFeatureIndex] += diffRow * diffCol; // Sum of outer products
                     }
                 }
             }
 
             // Normalize and add regularization to the diagonal
-            double denom = trainingSet.size() - 1.0;
-            for (int i = 0; i < featureCount; i++) {
-                for (int j = 0; j < featureCount; j++) {
-                    covariance[i][j] /= denom;
+            double denominator = trainingSet.size() - 1.0;
+            for (int rowIndex = 0; rowIndex < featureCount; rowIndex++) {
+                for (int colIndex = 0; colIndex < featureCount; colIndex++) {
+                    covariance[rowIndex][colIndex] /= denominator;
                 }
-                covariance[i][i] += 1e-6; // Regularization for stability
+                covariance[rowIndex][rowIndex] += 1e-6; // Regularization for stability
             }
             return covariance;
         }
 
         // Uses Gauss-Jordan elimination to compute the inverse of a matrix
         private static double[][] invertMatrix(double[][] matrix) {
-            int n = matrix.length;
-            double[][] augmented = new double[n][2 * n];
+            int size = matrix.length;
+            double[][] augmented = new double[size][2 * size];
 
             // Build augmented matrix [A | I]
-            for (int i = 0; i < n; i++) {
-                System.arraycopy(matrix[i], 0, augmented[i], 0, n);
-                augmented[i][i + n] = 1.0;
+            for (int rowIndex = 0; rowIndex < size; rowIndex++) {
+                System.arraycopy(matrix[rowIndex], 0, augmented[rowIndex], 0, size);
+                augmented[rowIndex][rowIndex + size] = 1.0;
             }
 
             // Apply row operations to transform [A | I] into [I | A^-1]
-            for (int col = 0; col < n; col++) {
+            for (int colIndex = 0; colIndex < size; colIndex++) {
                 // Find pivot
-                int pivot = col;
-                double max = Math.abs(augmented[pivot][col]);
-                for (int row = col + 1; row < n; row++) {
-                    double value = Math.abs(augmented[row][col]);
-                    if (value > max) {
-                        max = value;
-                        pivot = row;
+                int pivotRow = colIndex;
+                double maxValue = Math.abs(augmented[pivotRow][colIndex]);
+                for (int rowIndex = colIndex + 1; rowIndex < size; rowIndex++) {
+                    double value = Math.abs(augmented[rowIndex][colIndex]);
+                    if (value > maxValue) {
+                        maxValue = value;
+                        pivotRow = rowIndex;
                     }
                 }
 
-                if (Math.abs(augmented[pivot][col]) < 1e-9) {
+                if (Math.abs(augmented[pivotRow][colIndex]) < 1e-9) {
                     return null; // Matrix is singular
                 }
 
                 // Swap rows
-                if (pivot != col) {
-                    double[] tmp = augmented[pivot];
-                    augmented[pivot] = augmented[col];
-                    augmented[col] = tmp;
+                if (pivotRow != colIndex) {
+                    double[] temp = augmented[pivotRow];
+                    augmented[pivotRow] = augmented[colIndex];
+                    augmented[colIndex] = temp;
                 }
 
                 // Normalize pivot row
-                double pivotVal = augmented[col][col];
-                for (int j = 0; j < 2 * n; j++) {
-                    augmented[col][j] /= pivotVal;
+                double pivotValue = augmented[colIndex][colIndex];
+                for (int elementIndex = 0; elementIndex < 2 * size; elementIndex++) {
+                    augmented[colIndex][elementIndex] /= pivotValue;
                 }
 
                 // Eliminate other entries in the column
-                for (int row = 0; row < n; row++) {
-                    if (row == col) {
+                for (int rowIndex = 0; rowIndex < size; rowIndex++) {
+                    if (rowIndex == colIndex) {
                         continue;
                     }
-                    double factor = augmented[row][col];
-                    for (int j = 0; j < 2 * n; j++) {
-                        augmented[row][j] -= factor * augmented[col][j];
+                    double factor = augmented[rowIndex][colIndex];
+                    for (int elementIndex = 0; elementIndex < 2 * size; elementIndex++) {
+                        augmented[rowIndex][elementIndex] -= factor * augmented[colIndex][elementIndex];
                     }
                 }
             }
 
             // Extract the inverse matrix A^-1 from the right side
-            double[][] inverse = new double[n][n];
-            for (int i = 0; i < n; i++) {
-                System.arraycopy(augmented[i], n, inverse[i], 0, n);
+            double[][] inverse = new double[size][size];
+            for (int rowIndex = 0; rowIndex < size; rowIndex++) {
+                System.arraycopy(augmented[rowIndex], size, inverse[rowIndex], 0, size);
             }
             return inverse;
         }
@@ -1309,18 +1309,18 @@ public class CWmain {
         private static double computeMahalanobisDistance(double[] diff, double[][] inverseCovariance) {
             // intermediate = Covariance^-1 * diff
             double[] intermediate = new double[diff.length];
-            for (int i = 0; i < diff.length; i++) {
+            for (int rowIndex = 0; rowIndex < diff.length; rowIndex++) {
                 double sum = 0;
-                for (int j = 0; j < diff.length; j++) {
-                    sum += inverseCovariance[i][j] * diff[j];
+                for (int colIndex = 0; colIndex < diff.length; colIndex++) {
+                    sum += inverseCovariance[rowIndex][colIndex] * diff[colIndex];
                 }
-                intermediate[i] = sum;
+                intermediate[rowIndex] = sum;
             }
             
             // distance = diff^T * intermediate
             double distance = 0;
-            for (int i = 0; i < diff.length; i++) {
-                distance += diff[i] * intermediate[i];
+            for (int index = 0; index < diff.length; index++) {
+                distance += diff[index] * intermediate[index];
             }
             return Math.sqrt(distance);
         }
@@ -1542,11 +1542,11 @@ public class CWmain {
 
             if (result instanceof int[]) {
                 isSplitResult = true;
-                int[] preds = (int[]) result;
-                if (preds[0] == actualDigit) {
+                int[] predictions = (int[]) result;
+                if (predictions[0] == actualDigit) {
                     correctOneVsRest++;
                 }
-                if (preds[1] == actualDigit) {
+                if (predictions[1] == actualDigit) {
                     correctOneVsOne++;
                 }
             } else if (result instanceof Integer) {
@@ -1576,26 +1576,6 @@ public class CWmain {
         }
     }
 
-    // private static void showLoadingAnimation() {
-    //     try {
-    //         String[] frames = { ".  ", ".. ", "..." };
-    //         String baseText = "evaluating";
-
-    //         while (true) {
-    //             for (String frame : frames) {
-    //                 System.out.print("\r" + baseText + frame);
-    //                 Thread.sleep(100000);
-    //             }
-    //         }
-    //     } catch (InterruptedException e) {
-    //         // When interrupted, animation thread exits gracefully.
-    //         Thread.currentThread().interrupt();
-            
-    //         // to move the cursor to a fresh line for the main thread's output.
-    //         System.out.print("\r" + "                              " + "\r");
-    //     }
-    // }
-
     // Wrapper function to call evaluation without returning results
     private static void evaluateAlgorithm(List<List<Integer>> dataSetA, List<List<Integer>> dataSetB, Algorithm algorithm, String label) {
         evaluateAlgorithmWithResults(dataSetA, dataSetB, algorithm, label);
@@ -1621,9 +1601,9 @@ public class CWmain {
                 List<Integer> currentRow = new ArrayList<>();
                 boolean error = false;
 
-                for (int row = 0; row < ENTIRE_BITMAP_SIZE; row++) {
+                for (int columnIndex = 0; columnIndex < ENTIRE_BITMAP_SIZE; columnIndex++) {
                     try {
-                        currentRow.add(Integer.parseInt(values[row].trim()));
+                        currentRow.add(Integer.parseInt(values[columnIndex].trim()));
                     } catch (NumberFormatException e) {
                         error = true;
                         break;
@@ -1642,28 +1622,28 @@ public class CWmain {
 
     private static void printDataSet(List<List<Integer>> dataSet) {
         System.out.println("--- Entire Dataset ---");
-        for (int iteration = 0; iteration < dataSet.size(); iteration++) {
-            printRow(iteration, dataSet.get(iteration));
+        for (int sampleIndex = 0; sampleIndex < dataSet.size(); sampleIndex++) {
+            printRow(sampleIndex, dataSet.get(sampleIndex));
         }
     }
 
     private static void printLimitedDataSet(List<List<Integer>> dataSet) {
         System.out.println("--- First " + BITMAPS_TO_DISPLAY + " Samples ---");
-        for (int iteration = 0; iteration < Math.min(BITMAPS_TO_DISPLAY, dataSet.size()); iteration++) {
-            printRow(iteration, dataSet.get(iteration));
+        for (int sampleIndex = 0; sampleIndex < Math.min(BITMAPS_TO_DISPLAY, dataSet.size()); sampleIndex++) {
+            printRow(sampleIndex, dataSet.get(sampleIndex));
         }
     }
 
     // Prints a single row's pixel values and digit label
-    private static void printRow(int digit, List<Integer> row) {
+    private static void printRow(int rowNumber, List<Integer> row) {
         // The last element is the digit label
         int digitLabel = row.get(BITMAP_SIZE);
 
-        System.out.print("Sample " + (digit + 1) + " (Digit: " + digitLabel + "): [");
+        System.out.print("Sample " + (rowNumber + 1) + " (Digit: " + digitLabel + "): [");
         // Print the 64 pixel values
-        for (int pixel = 0; pixel < BITMAP_SIZE; pixel++) {
-            System.out.print(row.get(pixel));
-            if (pixel < BITMAP_SIZE - 1) {
+        for (int pixelIndex = 0; pixelIndex < BITMAP_SIZE; pixelIndex++) {
+            System.out.print(row.get(pixelIndex));
+            if (pixelIndex < BITMAP_SIZE - 1) {
                 System.out.print(", ");
             }
         }
@@ -1679,7 +1659,7 @@ private static void PrintDataUserInterface(List<List<Integer>> dataSetA ,List<Li
             System.out.println("3 -> Print subset A (First " + BITMAPS_TO_DISPLAY + ")");
             System.out.println("4 -> Print subset B (First " + BITMAPS_TO_DISPLAY + ")");
             System.out.println("0 -> Exit");
-            System.out.print("Choose bettween 0-4: ");
+            System.out.print("Choose between 0-4: ");
             try {
                 int choice = scanner.nextInt();
                 switch (choice) {
@@ -1743,7 +1723,7 @@ private static void PrintDataUserInterface(List<List<Integer>> dataSetA ,List<Li
             System.out.println("8 -> All at Once");
             System.out.println("9 -> Run All Algorithms in Order");
             System.out.println("0 -> Exit");
-            System.out.print("Choose bettween 0-9: ");
+            System.out.print("Choose between 0-9: ");
 
             try {
                 int choice = scanner.nextInt();
@@ -1848,26 +1828,26 @@ private static void PrintDataUserInterface(List<List<Integer>> dataSetA ,List<Li
         resultsAonB.put("K Nearest Neighbour", evaluateAlgorithmWithResults(dataSetA, dataSetB, K_NEAREST_NEIGHBOUR, "K Nearest Neighbour"));
         resultsAonB.put("Mahalanobis Distance", evaluateAlgorithmWithResults(dataSetA, dataSetB, MAHALANOBIS_DISTANCE, "Mahalanobis Distance"));
         
-        AllAtOnce AllsetA = new AllAtOnce();
-        AllsetA.predict(dataSetA.get(0), dataSetA);
+        AllAtOnce allsetA = new AllAtOnce();
+        allsetA.predict(dataSetA.get(0), dataSetA);
         
         System.out.println("\n--- Multi-Layer Perceptron Variants ---");
-        resultsAonB.put("MLP [Raw Only]", evaluateAlgorithmWithResults(dataSetA, dataSetB, AllsetA.getMlpRawOnly(), "MLP [Raw Only]"));
-        resultsAonB.put("MLP [Centroid Only]", evaluateAlgorithmWithResults(dataSetA, dataSetB, AllsetA.getMlpCentroidOnly(), "MLP [Centroid Only]"));
-        resultsAonB.put("MLP [Raw + Centroid]", evaluateAlgorithmWithResults(dataSetA, dataSetB, AllsetA.getMlpRawCentroid(), "MLP [Raw + Centroid]"));
-        resultsAonB.put("MLP [Raw + KMeans]", evaluateAlgorithmWithResults(dataSetA, dataSetB, AllsetA.getMlpRawKMeans(), "MLP [Raw + KMeans]"));
-        resultsAonB.put("MLP [Raw + GA]", evaluateAlgorithmWithResults(dataSetA, dataSetB, AllsetA.getMlpRawGA(), "MLP [Raw + GA]"));
-        resultsAonB.put("MLP [All Features]", evaluateAlgorithmWithResults(dataSetA, dataSetB, AllsetA.getMlpAll(), "MLP [All Features]"));
+        resultsAonB.put("MLP [Raw Only]", evaluateAlgorithmWithResults(dataSetA, dataSetB, allsetA.getMlpRawOnly(), "MLP [Raw Only]"));
+        resultsAonB.put("MLP [Centroid Only]", evaluateAlgorithmWithResults(dataSetA, dataSetB, allsetA.getMlpCentroidOnly(), "MLP [Centroid Only]"));
+        resultsAonB.put("MLP [Raw + Centroid]", evaluateAlgorithmWithResults(dataSetA, dataSetB, allsetA.getMlpRawCentroid(), "MLP [Raw + Centroid]"));
+        resultsAonB.put("MLP [Raw + KMeans]", evaluateAlgorithmWithResults(dataSetA, dataSetB, allsetA.getMlpRawKMeans(), "MLP [Raw + KMeans]"));
+        resultsAonB.put("MLP [Raw + GA]", evaluateAlgorithmWithResults(dataSetA, dataSetB, allsetA.getMlpRawGA(), "MLP [Raw + GA]"));
+        resultsAonB.put("MLP [All Features]", evaluateAlgorithmWithResults(dataSetA, dataSetB, allsetA.getMlpAll(), "MLP [All Features]"));
         
         System.out.println("\n--- Support Vector Machine Variants ---");
-        resultsAonB.put("SVM [Centroid Only]", evaluateAlgorithmWithResults(dataSetA, dataSetB, AllsetA.getSvmCentroidOnly(), "SVM [Centroid Only]"));
-        resultsAonB.put("SVM [Raw + Centroid]", evaluateAlgorithmWithResults(dataSetA, dataSetB, AllsetA.getSvmRawCentroid(), "SVM [Raw + Centroid]"));
-        resultsAonB.put("SVM [Raw + KMeans]", evaluateAlgorithmWithResults(dataSetA, dataSetB, AllsetA.getSvmRawKMeans(), "SVM [Raw + KMeans]"));
-        resultsAonB.put("SVM [Raw + GA]", evaluateAlgorithmWithResults(dataSetA, dataSetB, AllsetA.getSvmRawGA(), "SVM [Raw + GA]"));
-        resultsAonB.put("SVM [All Features]", evaluateAlgorithmWithResults(dataSetA, dataSetB, AllsetA.getSvmAll(), "SVM [All Features]"));
+        resultsAonB.put("SVM [Centroid Only]", evaluateAlgorithmWithResults(dataSetA, dataSetB, allsetA.getSvmCentroidOnly(), "SVM [Centroid Only]"));
+        resultsAonB.put("SVM [Raw + Centroid]", evaluateAlgorithmWithResults(dataSetA, dataSetB, allsetA.getSvmRawCentroid(), "SVM [Raw + Centroid]"));
+        resultsAonB.put("SVM [Raw + KMeans]", evaluateAlgorithmWithResults(dataSetA, dataSetB, allsetA.getSvmRawKMeans(), "SVM [Raw + KMeans]"));
+        resultsAonB.put("SVM [Raw + GA]", evaluateAlgorithmWithResults(dataSetA, dataSetB, allsetA.getSvmRawGA(), "SVM [Raw + GA]"));
+        resultsAonB.put("SVM [All Features]", evaluateAlgorithmWithResults(dataSetA, dataSetB, allsetA.getSvmAll(), "SVM [All Features]"));
         
         System.out.println("\n--- All Algorithms at once (pick most voted class) ---");
-        resultsAonB.put("All at Once", evaluateAlgorithmWithResults(dataSetA, dataSetB, AllsetA, "All at Once"));
+        resultsAonB.put("All at Once", evaluateAlgorithmWithResults(dataSetA, dataSetB, allsetA, "All at Once"));
         
         // ========== SECOND RUN: B on A ==========
         System.out.println("\n========================================");
@@ -1880,26 +1860,26 @@ private static void PrintDataUserInterface(List<List<Integer>> dataSetA ,List<Li
         resultsBonA.put("K Nearest Neighbour", evaluateAlgorithmWithResults(dataSetB, dataSetA, K_NEAREST_NEIGHBOUR, "K Nearest Neighbour"));
         resultsBonA.put("Mahalanobis Distance", evaluateAlgorithmWithResults(dataSetB, dataSetA, MAHALANOBIS_DISTANCE, "Mahalanobis Distance"));
         
-        AllAtOnce AllsetB = new AllAtOnce();
-        AllsetB.predict(dataSetB.get(0), dataSetB);
+        AllAtOnce allsetB = new AllAtOnce();
+        allsetB.predict(dataSetB.get(0), dataSetB);
         
         System.out.println("\n--- Multi-Layer Perceptron Variants ---");
-        resultsBonA.put("MLP [Raw Only]", evaluateAlgorithmWithResults(dataSetB, dataSetA, AllsetB.getMlpRawOnly(), "MLP [Raw Only]"));
-        resultsBonA.put("MLP [Centroid Only]", evaluateAlgorithmWithResults(dataSetB, dataSetA, AllsetB.getMlpCentroidOnly(), "MLP [Centroid Only]"));
-        resultsBonA.put("MLP [Raw + Centroid]", evaluateAlgorithmWithResults(dataSetB, dataSetA, AllsetB.getMlpRawCentroid(), "MLP [Raw + Centroid]"));
-        resultsBonA.put("MLP [Raw + KMeans]", evaluateAlgorithmWithResults(dataSetB, dataSetA, AllsetB.getMlpRawKMeans(), "MLP [Raw + KMeans]"));
-        resultsBonA.put("MLP [Raw + GA]", evaluateAlgorithmWithResults(dataSetB, dataSetA, AllsetB.getMlpRawGA(), "MLP [Raw + GA]"));
-        resultsBonA.put("MLP [All Features]", evaluateAlgorithmWithResults(dataSetB, dataSetA, AllsetB.getMlpAll(), "MLP [All Features]"));
+        resultsBonA.put("MLP [Raw Only]", evaluateAlgorithmWithResults(dataSetB, dataSetA, allsetB.getMlpRawOnly(), "MLP [Raw Only]"));
+        resultsBonA.put("MLP [Centroid Only]", evaluateAlgorithmWithResults(dataSetB, dataSetA, allsetB.getMlpCentroidOnly(), "MLP [Centroid Only]"));
+        resultsBonA.put("MLP [Raw + Centroid]", evaluateAlgorithmWithResults(dataSetB, dataSetA, allsetB.getMlpRawCentroid(), "MLP [Raw + Centroid]"));
+        resultsBonA.put("MLP [Raw + KMeans]", evaluateAlgorithmWithResults(dataSetB, dataSetA, allsetB.getMlpRawKMeans(), "MLP [Raw + KMeans]"));
+        resultsBonA.put("MLP [Raw + GA]", evaluateAlgorithmWithResults(dataSetB, dataSetA, allsetB.getMlpRawGA(), "MLP [Raw + GA]"));
+        resultsBonA.put("MLP [All Features]", evaluateAlgorithmWithResults(dataSetB, dataSetA, allsetB.getMlpAll(), "MLP [All Features]"));
         
         System.out.println("\n--- Support Vector Machine Variants ---");
-        resultsBonA.put("SVM [Centroid Only]", evaluateAlgorithmWithResults(dataSetB, dataSetA, AllsetB.getSvmCentroidOnly(), "SVM [Centroid Only]"));
-        resultsBonA.put("SVM [Raw + Centroid]", evaluateAlgorithmWithResults(dataSetB, dataSetA, AllsetB.getSvmRawCentroid(), "SVM [Raw + Centroid]"));
-        resultsBonA.put("SVM [Raw + KMeans]", evaluateAlgorithmWithResults(dataSetB, dataSetA, AllsetB.getSvmRawKMeans(), "SVM [Raw + KMeans]"));
-        resultsBonA.put("SVM [Raw + GA]", evaluateAlgorithmWithResults(dataSetB, dataSetA, AllsetB.getSvmRawGA(), "SVM [Raw + GA]"));
-        resultsBonA.put("SVM [All Features]", evaluateAlgorithmWithResults(dataSetB, dataSetA, AllsetB.getSvmAll(), "SVM [All Features]"));
+        resultsBonA.put("SVM [Centroid Only]", evaluateAlgorithmWithResults(dataSetB, dataSetA, allsetB.getSvmCentroidOnly(), "SVM [Centroid Only]"));
+        resultsBonA.put("SVM [Raw + Centroid]", evaluateAlgorithmWithResults(dataSetB, dataSetA, allsetB.getSvmRawCentroid(), "SVM [Raw + Centroid]"));
+        resultsBonA.put("SVM [Raw + KMeans]", evaluateAlgorithmWithResults(dataSetB, dataSetA, allsetB.getSvmRawKMeans(), "SVM [Raw + KMeans]"));
+        resultsBonA.put("SVM [Raw + GA]", evaluateAlgorithmWithResults(dataSetB, dataSetA, allsetB.getSvmRawGA(), "SVM [Raw + GA]"));
+        resultsBonA.put("SVM [All Features]", evaluateAlgorithmWithResults(dataSetB, dataSetA, allsetB.getSvmAll(), "SVM [All Features]"));
         
         System.out.println("\n--- All Algorithms at once (pick most voted class) ---");
-        resultsBonA.put("All at Once", evaluateAlgorithmWithResults(dataSetB, dataSetA, AllsetB, "All at Once"));
+        resultsBonA.put("All at Once", evaluateAlgorithmWithResults(dataSetB, dataSetA, allsetB, "All at Once"));
         
         // ========== CALCULATE AND PRINT AVERAGES ==========
         System.out.println("\n========================================");
