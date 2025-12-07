@@ -368,9 +368,6 @@ public class CWmain {
 
         @Override
         public Object predict(List<Integer> sample, List<List<Integer>> trainingSet) {
-            if (trainingSet == null || trainingSet.isEmpty()) {
-                throw new IllegalArgumentException("Dataset empty");
-            }
             double minDistance = Double.MAX_VALUE;
             List<Integer> closest = null;
             for (List<Integer> candidate : trainingSet) {
@@ -701,7 +698,7 @@ public class CWmain {
                 double sum = 0;
                 for (int pixelIndex = 0; pixelIndex < BITMAP_SIZE; pixelIndex++) {
                     double diff = sample.get(pixelIndex) - centroids[digit][pixelIndex];
-                    sum += diff * diff; // Squared Euclidean Distance gives better results then square root
+                    sum += diff * diff;
                 }
                 double distance = Math.sqrt(sum);
                 if (distance < minDistance) {
