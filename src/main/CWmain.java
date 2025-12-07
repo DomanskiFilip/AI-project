@@ -169,7 +169,7 @@ public class CWmain {
                 double diff = sample.get(featureIndex) - kmeansCentroids[clusterIndex][featureIndex];
                 sum += diff * diff;
             }
-            distances[clusterIndex] = Math.sqrt(sum);
+            distances[clusterIndex] = sum;
         }
         return distances;
     }
@@ -377,7 +377,7 @@ public class CWmain {
                 double sum = 0;
                 for (int pixelIndex = 0; pixelIndex < BITMAP_SIZE; pixelIndex++) {
                     double distance = sample.get(pixelIndex) - candidate.get(pixelIndex);
-                    sum += distance * distance; // Squared Euclidean Distance gives better results then square root
+                    sum += distance * distance;
                 }
                 if (sum < minDistance) {
                     minDistance = sum;
@@ -401,8 +401,8 @@ public class CWmain {
         }
 
         // Hyperparameters
-        private static final int PERCEPTRONS = 500;
-        private static final int EPOCHS = 100;
+        private static final int PERCEPTRONS = 1000;
+        private static final int EPOCHS = 1000;
         // 500 perceptrons and 500 epochs have best results when training on A and testing on B
         // 1000 perceptrons and 50 epochs have best results when training on B and testing on A
         private static final double LEARNING_RATE = 0.1;
@@ -1116,7 +1116,7 @@ public class CWmain {
                 double distance = 0;
                 for (int pixelIndex = 0; pixelIndex < BITMAP_SIZE; pixelIndex++) {
                     double diff = sample.get(pixelIndex) - candidate.get(pixelIndex);
-                    distance += diff * diff; // Squared Euclidean Distance gives better results than square root
+                    distance += diff * diff;
                 }
 
                 // Keep only the K smallest distances
@@ -1906,8 +1906,8 @@ private static void PrintDataUserInterface(List<List<Integer>> dataSetA ,List<Li
                 double avgSuccessRate = (resultAonB.successRate + resultBonA.successRate) / 2.0;
                 double avgTime = (resultAonB.evaluationTime + resultBonA.evaluationTime) / 2.0;
                 
-                System.out.printf("   A→B Success Rate: %.5f%%%n", resultAonB.successRate);
-                System.out.printf("   B→A Success Rate: %.5f%%%n", resultBonA.successRate);
+                System.out.printf("   A>B Success Rate: %.5f%%%n", resultAonB.successRate);
+                System.out.printf("   B>A Success Rate: %.5f%%%n", resultBonA.successRate);
                 System.out.printf("   Average Success Rate: %.5f%%%n", avgSuccessRate);
                 System.out.printf("   Average Evaluation Time: %.5f seconds%n", avgTime);
             }
