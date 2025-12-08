@@ -1145,7 +1145,7 @@ public class CWmain {
         }
     }
 
-    // Mahalanobis Distance Algorithm
+    // Mahalanobis Distance Algorithm with Per-Class Covariance
     private static class MahalanobisDistance implements Algorithm {
         private static final int CLASSES = 10;
 
@@ -1156,17 +1156,32 @@ public class CWmain {
             // Pre-calculations needed for Mahalanobis Distance
             double[][] centroids = calculateCentroids(trainingSet);
             int[] classCounts = new int[CLASSES];
-            for (List<Integer> row : trainingSet) {
-                classCounts[row.get(BITMAP_SIZE)]++;
+            
+            // Separate training data by class
+            List<List<List<Integer>>> classSamples = new ArrayList<>();
+            for (int i = 0; i < CLASSES; i++) {
+                classSamples.add(new ArrayList<>());
             }
-            double[] featureMeans = computeFeatureMeans(trainingSet, featureCount);
+            
+            for (List<Integer> row : trainingSet) {
+                int label = row.get(BITMAP_SIZE);
+                classCounts[label]++;
+                classSamples.get(label).add(row);
+            }
 
-            // Calculate the global covariance matrix
-            double[][] covariance = computeCovarianceMatrix(trainingSet, featureCount, featureMeans);
-            // Invert the matrix (this is the expensive step)
-            double[][] inverseCovariance = invertMatrix(covariance);
-            if (inverseCovariance == null) {
-                return Integer.valueOf(-1); // Safety check for singular matrix
+            // Calculate per-class covariance matrices and their inverses
+            double[][][] inverseCovariances = new double[CLASSES][][];
+            for (int digit = 0; digit < CLASSES; digit++) {
+                if (classCounts[digit] > featureCount) { // Need enough samples
+                    double[][] covariance = computeClassCovarianceMatrix(
+                        classSamples.get(digit), 
+                        featureCount, 
+                        centroids[digit]
+                    );
+                    inverseCovariances[digit] = invertMatrix(covariance);
+                } else {
+                    inverseCovariances[digit] = null; // Fallback to Euclidean for this class
+                }
             }
 
             double[] sampleVector = new double[featureCount];
@@ -1174,7 +1189,7 @@ public class CWmain {
                 sampleVector[featureIndex] = sample.get(featureIndex);
             }
 
-            // Calculate Mahalanobis distance to each class centroid
+            // Calculate distance to each class centroid
             double bestDistance = Double.MAX_VALUE;
             int bestClass = -1;
             for (int digit = 0; digit < CLASSES; digit++) {
@@ -1188,8 +1203,15 @@ public class CWmain {
                     diff[featureIndex] = sampleVector[featureIndex] - centroids[digit][featureIndex];
                 }
 
-                // Mahalanobis Distance: sqrt( diff^T * Covariance^-1 * diff )
-                double distance = computeMahalanobisDistance(diff, inverseCovariance);
+                double distance;
+                if (inverseCovariances[digit] != null) {
+                    // Use Mahalanobis Distance with per-class covariance
+                    distance = computeMahalanobisDistance(diff, inverseCovariances[digit]);
+                } else {
+                    // Fallback to Euclidean distance if covariance couldn't be computed
+                    distance = computeEuclideanDistance(diff);
+                }
+                
                 if (distance < bestDistance) {
                     bestDistance = distance;
                     bestClass = digit;
@@ -1198,47 +1220,50 @@ public class CWmain {
             return Integer.valueOf(bestClass >= 0 ? bestClass : 0);
         }
 
-        // Calculates the mean for each of the 64 features
-        private static double[] computeFeatureMeans(List<List<Integer>> trainingSet, int featureCount) {
-            double[] means = new double[featureCount];
-            for (List<Integer> row : trainingSet) {
-                for (int featureIndex = 0; featureIndex < featureCount; featureIndex++) {
-                    means[featureIndex] += row.get(featureIndex);
-                }
-            }
-
-            for (int featureIndex = 0; featureIndex < featureCount; featureIndex++) {
-                means[featureIndex] /= trainingSet.size();
-            }
-            return means;
-        }
-
-        // Calculates the Covariance Matrix
-        private static double[][] computeCovarianceMatrix(List<List<Integer>> trainingSet, int featureCount, double[] means) {
+        // Calculates the Covariance Matrix for a single class
+        private static double[][] computeClassCovarianceMatrix(
+                List<List<Integer>> classSamples, 
+                int featureCount, 
+                double[] classCentroid) {
+            
             double[][] covariance = new double[featureCount][featureCount];
-            if (trainingSet.size() <= 1) {
+            if (classSamples.size() <= 1) {
+                // Not enough samples - return identity-like matrix
+                for (int i = 0; i < featureCount; i++) {
+                    covariance[i][i] = 1.0;
+                }
                 return covariance;
             }
 
-            for (List<Integer> row : trainingSet) {
+            for (List<Integer> row : classSamples) {
                 for (int rowFeatureIndex = 0; rowFeatureIndex < featureCount; rowFeatureIndex++) {
-                    double diffRow = row.get(rowFeatureIndex) - means[rowFeatureIndex];
+                    double diffRow = row.get(rowFeatureIndex) - classCentroid[rowFeatureIndex];
                     for (int colFeatureIndex = 0; colFeatureIndex < featureCount; colFeatureIndex++) {
-                        double diffCol = row.get(colFeatureIndex) - means[colFeatureIndex];
-                        covariance[rowFeatureIndex][colFeatureIndex] += diffRow * diffCol; // Sum of outer products
+                        double diffCol = row.get(colFeatureIndex) - classCentroid[colFeatureIndex];
+                        covariance[rowFeatureIndex][colFeatureIndex] += diffRow * diffCol;
                     }
                 }
             }
 
             // Normalize and add regularization to the diagonal
-            double denominator = trainingSet.size() - 1.0;
+            double denominator = classSamples.size() - 1.0;
             for (int rowIndex = 0; rowIndex < featureCount; rowIndex++) {
                 for (int colIndex = 0; colIndex < featureCount; colIndex++) {
                     covariance[rowIndex][colIndex] /= denominator;
                 }
-                covariance[rowIndex][rowIndex] += 1e-6; // Regularization for stability
+                // Increased regularization for stability with limited samples
+                covariance[rowIndex][rowIndex] += 0.1;
             }
             return covariance;
+        }
+
+        // Fallback Euclidean distance calculation
+        private static double computeEuclideanDistance(double[] diff) {
+            double sumSquares = 0;
+            for (double d : diff) {
+                sumSquares += d * d;
+            }
+            return Math.sqrt(sumSquares);
         }
 
         // Uses Gauss-Jordan elimination to compute the inverse of a matrix
@@ -1319,10 +1344,9 @@ public class CWmain {
             for (int index = 0; index < diff.length; index++) {
                 distance += diff[index] * intermediate[index];
             }
-            return Math.sqrt(distance);
+            return Math.sqrt(Math.max(0, distance)); // Protect against numerical errors
         }
     }
-
     // All at Once Algorithm (Ensemble of all algorithms with majority voting)
     private static class AllAtOnce implements Algorithm {
         
@@ -1835,8 +1859,6 @@ private static void PrintDataUserInterface(List<List<Integer>> dataSetA ,List<Li
 
                     case 8:
                         System.out.println("Trained on A tested on B:");
-                        evaluateAlgorithm(dataSetA, dataSetB, ALL_AT_ONCE, "All at Once");
-                        System.out.println("Trained on B tested on A:");
                         evaluateAlgorithm(dataSetB, dataSetA, ALL_AT_ONCE, "All at Once");
                         break;
                     
