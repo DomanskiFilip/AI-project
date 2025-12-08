@@ -1859,7 +1859,7 @@ private static void PrintDataUserInterface(List<List<Integer>> dataSetA ,List<Li
 
                     case 8:
                         System.out.println("Trained on A tested on B:");
-                        evaluateAlgorithm(dataSetB, dataSetA, ALL_AT_ONCE, "All at Once");
+                        evaluateAlgorithm(dataSetA, dataSetB, ALL_AT_ONCE, "All at Once");
                         break;
                     
                     case 9:
