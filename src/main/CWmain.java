@@ -398,8 +398,8 @@ public class CWmain {
         }
 
         // Hyperparameters
-        private static final int PERCEPTRONS = 1000;
-        private static final int EPOCHS = 1000;
+        private static final int PERCEPTRONS = 300;
+        private static final int EPOCHS = 50;
         // 500 perceptrons and 500 epochs have best results when training on A and testing on B
         // 1000 perceptrons and 50 epochs have best results when training on B and testing on A
         private static final double LEARNING_RATE = 0.1;
@@ -680,7 +680,7 @@ public class CWmain {
         }
 
         public String getParameters() {
-            return "Mode: " + mode + ", Epochs: " + EPOCHS + ", Learning rate: " + LEARNING_RATE + ", Perceptrons: " + PERCEPTRONS + ", Input size: " + inputSize + ", Random seed: " + RANDOM_SEED;
+            return "Mode: " + mode + ", Epochs: " + EPOCHS + ", Learning rate: " + LEARNING_RATE + ", Perceptrons: " + PERCEPTRONS +  ", Random seed: " + RANDOM_SEED;
         }
     }
 
@@ -1730,10 +1730,14 @@ private static void PrintDataUserInterface(List<List<Integer>> dataSetA ,List<Li
                         break;
 
                     case 2:
-                        evaluateAlgorithm(dataSetA, dataSetB, EUCLIDEAN_DISTANCE, "Euclidean Distance"); // train on A, test on B
+                        System.out.println("Trained on A tested on B:");
+                        evaluateAlgorithm(dataSetA, dataSetB, EUCLIDEAN_DISTANCE, "Euclidean Distance");
+                        System.out.println("Trained on B tested on A:");
+                        evaluateAlgorithm(dataSetB, dataSetA, EUCLIDEAN_DISTANCE, "Euclidean Distance");
                         break;
 
                     case 3:
+                        System.out.println("Trained on A tested on B:");
                         // MLP (raw pixels only)
                         evaluateAlgorithm(dataSetA, dataSetB, new MultiLayerPerceptron(MultiLayerPerceptron.FeatureMode.RAW_ONLY), "MLP [Raw Only]");
 
@@ -1751,40 +1755,89 @@ private static void PrintDataUserInterface(List<List<Integer>> dataSetA ,List<Li
                         
                         // MLP with GA-weighted features
                         evaluateAlgorithm(dataSetA, dataSetB, new MultiLayerPerceptron(MultiLayerPerceptron.FeatureMode.RAW_GA), "MLP [Raw + GA]");
+
+                        System.out.println("Trained on B tested on A:");
+
+                        // MLP (raw pixels only)
+                        evaluateAlgorithm(dataSetB, dataSetA, new MultiLayerPerceptron(MultiLayerPerceptron.FeatureMode.RAW_ONLY), "MLP [Raw Only]");
+
+                        // MLP with all features
+                        evaluateAlgorithm(dataSetB, dataSetA, new MultiLayerPerceptron(MultiLayerPerceptron.FeatureMode.ALL), "MLP [All Features]");
+                        
+                        // MLP with centroid distances
+                        evaluateAlgorithm(dataSetB, dataSetA, new MultiLayerPerceptron(MultiLayerPerceptron.FeatureMode.CENTROID_ONLY), "MLP [Centroid Only]");
+                        
+                        // MLP with combined features
+                        evaluateAlgorithm(dataSetB, dataSetA, new MultiLayerPerceptron(MultiLayerPerceptron.FeatureMode.RAW_CENTROID), "MLP [Raw + Centroid]");
+                        
+                        // MLP with K-Means features
+                        evaluateAlgorithm(dataSetB, dataSetA, new MultiLayerPerceptron(MultiLayerPerceptron.FeatureMode.RAW_KMEANS), "MLP [Raw + KMeans]");
+                        
+                        // MLP with GA-weighted features
+                        evaluateAlgorithm(dataSetB, dataSetA, new MultiLayerPerceptron(MultiLayerPerceptron.FeatureMode.RAW_GA), "MLP [Raw + GA]");
                         
                         break;
 
                     case 4:
-                        evaluateAlgorithm(dataSetA, dataSetB, DISTANCE_FROM_CENTROID, "Distance From Centroid"); // train on A, test on B
+                        System.out.println("Trained on A tested on B:");
+                        evaluateAlgorithm(dataSetA, dataSetB, DISTANCE_FROM_CENTROID, "Distance From Centroid");
+                        System.out.println("Trained on B tested on A:");
+                        evaluateAlgorithm(dataSetB, dataSetA, DISTANCE_FROM_CENTROID, "Distance From Centroid");
                         break;
 
                     case 5:
+                        System.out.println("Trained on A tested on B:");
                         // SVM Centroid Distances only
-                        evaluateAlgorithm(dataSetA, dataSetB, new SupportVectorMachine(SupportVectorMachine.FeatureMode.CENTROID_ONLY), "SVM [Centroid Only]"); // train on A, test on B
+                        evaluateAlgorithm(dataSetA, dataSetB, new SupportVectorMachine(SupportVectorMachine.FeatureMode.CENTROID_ONLY), "SVM [Centroid Only]");
 
                         // SVM with all features
-                        evaluateAlgorithm(dataSetA, dataSetB, new SupportVectorMachine(SupportVectorMachine.FeatureMode.ALL), "SVM [All Features]"); // train on A, test on B
+                        evaluateAlgorithm(dataSetA, dataSetB, new SupportVectorMachine(SupportVectorMachine.FeatureMode.ALL), "SVM [All Features]");
 
                         // SVM Simple Raw + Centroid mix
-                        evaluateAlgorithm(dataSetA, dataSetB, new SupportVectorMachine(SupportVectorMachine.FeatureMode.RAW_CENTROID), "SVM [Raw + Centroid]"); // train on A, test on B
+                        evaluateAlgorithm(dataSetA, dataSetB, new SupportVectorMachine(SupportVectorMachine.FeatureMode.RAW_CENTROID), "SVM [Raw + Centroid]"); 
 
                         // SVM Raw + K-Means Distances
-                        evaluateAlgorithm(dataSetA, dataSetB, new SupportVectorMachine(SupportVectorMachine.FeatureMode.RAW_KMEANS), "SVM [Raw + KMeans]"); // train on A, test on B
+                        evaluateAlgorithm(dataSetA, dataSetB, new SupportVectorMachine(SupportVectorMachine.FeatureMode.RAW_KMEANS), "SVM [Raw + KMeans]"); 
 
                         // SVM Raw + GA Weighted Pixels
-                        evaluateAlgorithm(dataSetA, dataSetB, new SupportVectorMachine(SupportVectorMachine.FeatureMode.RAW_GA), "SVM [Raw + GA]"); // train on A, test on B
+                        evaluateAlgorithm(dataSetA, dataSetB, new SupportVectorMachine(SupportVectorMachine.FeatureMode.RAW_GA), "SVM [Raw + GA]");
+                        System.out.println("Trained on B tested on A:");
+                        // SVM Centroid Distances only
+                        evaluateAlgorithm(dataSetB, dataSetA, new SupportVectorMachine(SupportVectorMachine.FeatureMode.CENTROID_ONLY), "SVM [Centroid Only]");
+
+                        // SVM with all features
+                        evaluateAlgorithm(dataSetB, dataSetA, new SupportVectorMachine(SupportVectorMachine.FeatureMode.ALL), "SVM [All Features]");
+
+                        // SVM Simple Raw + Centroid mix
+                        evaluateAlgorithm(dataSetB, dataSetA, new SupportVectorMachine(SupportVectorMachine.FeatureMode.RAW_CENTROID), "SVM [Raw + Centroid]"); 
+
+                        // SVM Raw + K-Means Distances
+                        evaluateAlgorithm(dataSetB, dataSetA, new SupportVectorMachine(SupportVectorMachine.FeatureMode.RAW_KMEANS), "SVM [Raw + KMeans]"); 
+
+                        // SVM Raw + GA Weighted Pixels
+                        evaluateAlgorithm(dataSetB, dataSetA, new SupportVectorMachine(SupportVectorMachine.FeatureMode.RAW_GA), "SVM [Raw + GA]");
+
                         break;
 
                     case 6:
-                        evaluateAlgorithm(dataSetA, dataSetB, K_NEAREST_NEIGHBOUR, "K Nearest Neighbour"); // train on A, test on B
+                        System.out.println("Trained on A tested on B:");
+                        evaluateAlgorithm(dataSetA, dataSetB, K_NEAREST_NEIGHBOUR, "K Nearest Neighbour");
+                        System.out.println("Trained on B tested on A:");
+                        evaluateAlgorithm(dataSetB, dataSetA, K_NEAREST_NEIGHBOUR, "K Nearest Neighbour");
                         break;
 
                     case 7:
-                        evaluateAlgorithm(dataSetA, dataSetB, MAHALANOBIS_DISTANCE, "Mahalanobis Distance"); // train on A, test on B
+                        System.out.println("Trained on A tested on B:");
+                        evaluateAlgorithm(dataSetA, dataSetB, MAHALANOBIS_DISTANCE, "Mahalanobis Distance");
+                        System.out.println("Trained on B tested on A:");
+                        evaluateAlgorithm(dataSetB, dataSetA, MAHALANOBIS_DISTANCE, "Mahalanobis Distance");
                         break;
 
                     case 8:
-                        evaluateAlgorithm(dataSetA, dataSetB, ALL_AT_ONCE, "All at Once"); // train on A, test on B
+                        System.out.println("Trained on A tested on B:");
+                        evaluateAlgorithm(dataSetA, dataSetB, ALL_AT_ONCE, "All at Once");
+                        System.out.println("Trained on B tested on A:");
+                        evaluateAlgorithm(dataSetB, dataSetA, ALL_AT_ONCE, "All at Once");
                         break;
                     
                     case 9:
@@ -1922,7 +1975,7 @@ private static void PrintDataUserInterface(List<List<Integer>> dataSetA ,List<Li
         List<List<Integer>> dataSetB = readCsvFile(DATASET_B_FILE_PATH);
 
         // start user interface
-        // UserInterface(dataSetA, dataSetB);
-        runAllInOrder(dataSetA, dataSetB);
+         UserInterface(dataSetA, dataSetB);
+        // runAllInOrder(dataSetA, dataSetB);
     }
 }
