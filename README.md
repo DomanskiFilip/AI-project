@@ -25,7 +25,7 @@ src/
 └── main/
     └── java/
         └── dev/
-            └── DomanskiFilip/
+            └── domanskifilip/
                 └── aiproject/
                     ├── aiproject.java                        # Entry point
                     │
