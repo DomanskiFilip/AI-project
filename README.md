@@ -22,31 +22,36 @@ This system implements **7 different classification algorithms** to recognize ha
 
 ```
 src/
-├── main/
-│   └── CWmain.java                    # Entry point
-├── constants/
-│   └── Constants.java                 # Global configuration
-├── algorithms/
-│   ├── Algorithm.java                 # Base interface
-│   ├── EuclideanDistance.java         # Simple distance-based classification
-│   ├── KNearestNeighbour.java         # K-NN implementation (K=3)
-│   ├── DistanceFromCentroid.java      # Centroid-based classification
-│   ├── MahalanobisDistance.java       # Statistical distance method
-│   ├── MultiLayerPerceptron.java      # Neural network (300 perceptrons)
-│   ├── SupportVectorMachine.java      # SVM with One-vs-Rest & One-vs-One
-│   ├── AllAtOnce.java                 # Ensemble voting system
-│   └── ...                            # Supporting classes
-├── features/
-│   ├── FeatureMode.java               # Feature selection strategies
-│   └── FeatureExtractor.java          # Feature engineering utilities
-├── evaluation/
-│   ├── EvaluationResult.java          # Results data structure
-│   └── Evaluator.java                 # Performance evaluation
-├── data/
-│   ├── DatasetReader.java             # CSV data loading
-│   └── DatasetPrinter.java            # Dataset visualization
-└── ui/
-    └── UserInterface.java              # Interactive console UI
+└── main/
+    └── java/
+        └── dev/
+            └── DomanskiFilip/
+                └── ircj/
+                    ├── CWmain.java                        # Entry point
+                    │
+                    ├── constants/
+                    │   └── Constants.java                 # Global configuration
+                    ├── algorithms/
+                    │   ├── Algorithm.java                 # Base interface
+                    │   ├── EuclideanDistance.java         # Simple distance-based classification
+                    │   ├── KNearestNeighbour.java         # K-NN implementation (K=3)
+                    │   ├── DistanceFromCentroid.java      # Centroid-based classification
+                    │   ├── MahalanobisDistance.java       # Statistical distance method
+                    │   ├── MultiLayerPerceptron.java      # Neural network (300 perceptrons)
+                    │   ├── SupportVectorMachine.java      # SVM with One-vs-Rest & One-vs-One
+                    │   ├── AllAtOnce.java                 # Ensemble voting system
+                    │   └── ...                            # Supporting classes
+                    ├── features/
+                    │   ├── FeatureMode.java               # Feature selection strategies
+                    │   └── FeatureExtractor.java          # Feature engineering utilities
+                    ├── evaluation/
+                    │   ├── EvaluationResult.java          # Results data structure
+                    │   └── Evaluator.java                 # Performance evaluation
+                    ├── data/
+                    │   ├── DatasetReader.java             # CSV data loading
+                    │   └── DatasetPrinter.java            # Dataset visualization
+                    └── ui/
+                        └── UserInterface.java              # Interactive console UI
 ```
 
 ## Algorithm Performance
