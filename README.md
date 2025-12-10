@@ -26,8 +26,8 @@ src/
     └── java/
         └── dev/
             └── DomanskiFilip/
-                └── ircj/
-                    ├── CWmain.java                        # Entry point
+                └── AI-project/
+                    ├── main.java                        # Entry point
                     │
                     ├── constants/
                     │   └── Constants.java                 # Global configuration
