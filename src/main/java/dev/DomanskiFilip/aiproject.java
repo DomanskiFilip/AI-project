@@ -1,4 +1,4 @@
-package main.java.dev.DomanskiFilip;
+package main.java.dev.domanskifilip;
 
 import algorithms.*;
 import data.DatasetReader;
