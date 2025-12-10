@@ -26,8 +26,8 @@ src/
     └── java/
         └── dev/
             └── DomanskiFilip/
-                └── AI-project/
-                    ├── main.java                        # Entry point
+                └── aiproject/
+                    ├── aiproject.java                        # Entry point
                     │
                     ├── constants/
                     │   └── Constants.java                 # Global configuration
