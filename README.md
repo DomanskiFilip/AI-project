@@ -4,7 +4,6 @@ A comprehensive machine learning system implementing and comparing multiple clas
 
 ![Java](https://img.shields.io/badge/Java-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white)
 ![Machine Learning](https://img.shields.io/badge/Machine%20Learning-FF6F00?style=for-the-badge&logo=tensorflow&logoColor=white)
-![Status](https://img.shields.io/badge/Status-Active-success?style=for-the-badge)
 
 ## Overview
 
