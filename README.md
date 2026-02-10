@@ -292,6 +292,8 @@ Despite sophisticated feature engineering:
 - Suggests the 8×8 representation already captures essential information
 - Over-engineering may introduce noise or lose critical spatial relationships
 
+dataset by [University of California at Irvine's Machine Learning Repository](https://archive.ics.uci.edu/dataset/80/optical+recognition+of+handwritten+digits)
+
 ---
 
 ⭐ **Star this repository if you find it interesting!**
